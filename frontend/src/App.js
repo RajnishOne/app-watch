@@ -1116,8 +1116,8 @@ function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
 
   const [formData, setFormData] = useState({
     name: editingApp?.name || '',
-    app_store_id: editingApp?.app_store_id || '',
-    interval_override: editingApp?.interval_override || '',
+    app_store_id: String(editingApp?.app_store_id ?? ''),
+    interval_override: String(editingApp?.interval_override ?? ''),
     enabled: editingApp?.enabled !== false,
     icon_url: editingApp?.icon_url || ''
   });
@@ -1196,11 +1196,13 @@ function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formData.name.trim()) newErrors.name = 'App Name is required';
-    if (!formData.app_store_id.trim()) {
+    const appStoreIdVal = String(formData.app_store_id ?? '').trim();
+    const intervalOverrideVal = String(formData.interval_override ?? '').trim();
+
+    if (!String(formData.name ?? '').trim()) newErrors.name = 'App Name is required';
+    if (!appStoreIdVal) {
       newErrors.app_store_id = 'App Store ID is required';
-    } else if (!/^\d+$/.test(formData.app_store_id.trim())) {
+    } else if (!/^\d+$/.test(appStoreIdVal)) {
       newErrors.app_store_id = 'App Store ID must be a number';
     }
     
@@ -1228,8 +1230,8 @@ function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
       }
     });
     
-    if (formData.interval_override.trim()) {
-      if (!/^\d+[hmsd]$/i.test(formData.interval_override.trim())) {
+    if (intervalOverrideVal) {
+      if (!/^\d+[hmsd]$/i.test(intervalOverrideVal)) {
         newErrors.interval_override = 'Invalid interval format. Use: 6h, 30m, 1d';
       }
     }
@@ -1239,10 +1241,13 @@ function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
   };
 
   const isFormValid = () => {
-    if (!formData.name.trim() || !formData.app_store_id.trim() || !/^\d+$/.test(formData.app_store_id.trim())) {
+    const name = String(formData.name ?? '').trim();
+    const appStoreId = String(formData.app_store_id ?? '').trim();
+    const intervalOverride = String(formData.interval_override ?? '').trim();
+    if (!name || !appStoreId || !/^\d+$/.test(appStoreId)) {
       return false;
     }
-    if (formData.interval_override.trim() && !/^\d+[hmsd]$/i.test(formData.interval_override.trim())) {
+    if (intervalOverride && !/^\d+[hmsd]$/i.test(intervalOverride)) {
       return false;
     }
     return true;
@@ -1592,7 +1597,12 @@ function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary btn-lg" disabled={!isFormValid()}>
+              <button
+                type="submit"
+                className="btn btn-primary btn-lg"
+                disabled={!isFormValid()}
+                title={!isFormValid() ? 'Required: App Name and App Store ID (numbers only). If you use Check Interval, use format like 6h, 30m, or 1d.' : undefined}
+              >
                 <Icons.Check /> {editingApp ? 'Update App' : 'Save App'}
               </button>
               <button type="button" className="btn btn-secondary btn-lg" onClick={onCancel}>
