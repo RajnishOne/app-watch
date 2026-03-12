@@ -1608,6 +1608,21 @@ function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
               </div>
             </div>
 
+            {!isFormValid() && (() => {
+              const name = String(formData.name ?? '').trim();
+              const appStoreId = String(formData.app_store_id ?? '').trim();
+              const intervalOverride = String(formData.interval_override ?? '').trim();
+              const missing = [];
+              if (!name) missing.push('App Name');
+              if (!appStoreId) missing.push('App Store ID');
+              else if (!/^\d+$/.test(appStoreId)) missing.push('App Store ID must be numbers only');
+              if (intervalOverride && !/^\d+[hmsd]$/i.test(intervalOverride)) missing.push('Check Interval: use format like 6h, 30m, 1d (no spaces)');
+              return missing.length > 0 ? (
+                <div className="alert alert-warning" style={{ marginBottom: '16px' }}>
+                  Fill in the required fields above to enable Save: {missing.join('; ')}.
+                </div>
+              ) : null;
+            })()}
             <div className="form-actions">
               <button
                 type="submit"
