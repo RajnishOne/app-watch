@@ -64,6 +64,18 @@
   --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
+/* Accent color swatches (used in Settings > Appearance) */
+.accent-swatch {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.accent-swatch:hover {
+  transform: scale(1.08);
+  box-shadow: var(--shadow-md);
+}
+.accent-swatch-active {
+  box-shadow: var(--shadow-md);
+}
+
 * {
   margin: 0;
   padding: 0;

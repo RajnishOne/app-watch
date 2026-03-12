@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
+import { ACCENT_PRESETS, applyAccentToDocument, getSavedAccent } from './theme';
 
 const API_BASE = window.location.origin;
 
@@ -349,11 +350,20 @@ function App() {
     return savedTheme || 'dark';
   });
 
+  // Accent color state
+  const [accent, setAccent] = useState(getSavedAccent);
+
   // Apply theme on mount and when theme changes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('app_theme', theme);
   }, [theme]);
+
+  // Apply accent on mount and when accent changes
+  useEffect(() => {
+    applyAccentToDocument(accent);
+    localStorage.setItem('app_accent', accent);
+  }, [accent]);
 
   // Check authentication status on mount
   useEffect(() => {
@@ -827,6 +837,8 @@ function App() {
             onNavigateSection={(section) => handleNavigate('settings', section)}
             theme={theme}
             onThemeChange={setTheme}
+            accent={accent}
+            onAccentChange={setAccent}
           />
         );
       case 'activity':
@@ -1616,7 +1628,7 @@ function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
   );
 }
 
-function SettingsPage({ onCancel, message, showMessage, section = 'general', onNavigateSection, theme, onThemeChange }) {
+function SettingsPage({ onCancel, message, showMessage, section = 'general', onNavigateSection, theme, onThemeChange, accent, onAccentChange }) {
   const [settings, setSettings] = useState({
     default_interval: '12h',
     monitoring_enabled_by_default: true,
@@ -2126,6 +2138,32 @@ function SettingsPage({ onCancel, message, showMessage, section = 'general', onN
                         <option value="light">Light</option>
                       </select>
                       <span className="form-hint">Choose your preferred color theme</span>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Accent color</label>
+                      <div className="accent-swatches" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '8px' }}>
+                        {Object.entries(ACCENT_PRESETS).map(([key, { primary, label }]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            className={`accent-swatch ${accent === key ? 'accent-swatch-active' : ''}`}
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 8,
+                              border: accent === key ? '3px solid var(--text-primary)' : '2px solid var(--border-color)',
+                              background: primary,
+                              cursor: 'pointer',
+                              padding: 0,
+                              flexShrink: 0,
+                            }}
+                            onClick={() => onAccentChange(key)}
+                            title={label}
+                            aria-label={`Accent ${label}`}
+                          />
+                        ))}
+                      </div>
+                      <span className="form-hint">Choose the accent color used for buttons and highlights</span>
                     </div>
                   </div>
                 </div>
