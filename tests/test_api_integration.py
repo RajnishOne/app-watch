@@ -24,12 +24,14 @@ def test_apps_and_status_endpoints_with_flask_client(tmp_path, monkeypatch):
         },
     )
     assert create_response.status_code == 201
-    app_id = create_response.get_json()["id"]
+    created_payload = create_response.get_json()
+    app_id = created_payload["id"]
+    assert created_payload["app_store_country"] == "us"
 
     apps_response = client.get("/api/apps")
     assert apps_response.status_code == 200
     apps = apps_response.get_json()
-    assert any(app["id"] == app_id for app in apps)
+    assert any(app["id"] == app_id and app.get("app_store_country") == "us" for app in apps)
 
     status_response = client.get("/api/status")
     assert status_response.status_code == 200

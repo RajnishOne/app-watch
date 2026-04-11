@@ -40,6 +40,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
   const [formData, setFormData] = useState({
     name: editingApp?.name || '',
     app_store_id: String(editingApp?.app_store_id ?? ''),
+    app_store_country: String(editingApp?.app_store_country ?? 'us').toLowerCase(),
     interval_override: String(editingApp?.interval_override ?? ''),
     enabled: editingApp?.enabled !== false,
     icon_url: editingApp?.icon_url || ''
@@ -76,14 +77,21 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
 
   useEffect(() => {
     const appStoreId = formData.app_store_id.trim();
+    const appStoreCountry = String(formData.app_store_country ?? 'us').trim().toLowerCase();
     
     if (appStoreId && /^\d+$/.test(appStoreId)) {
-      if (editingApp && editingApp.app_store_id === appStoreId) return;
+      if (
+        editingApp &&
+        editingApp.app_store_id === appStoreId &&
+        String(editingApp.app_store_country ?? 'us').toLowerCase() === appStoreCountry
+      ) {
+        return;
+      }
       
       const timeoutId = setTimeout(async () => {
         setFetchingMetadata(true);
         try {
-          const response = await fetchAppMetadata(appStoreId);
+          const response = await fetchAppMetadata(appStoreId, appStoreCountry);
           if (response.ok) {
             const metadata = await response.json();
             if (metadata.artworkUrl) {
@@ -115,11 +123,12 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
       setSuggestedName('');
       setFormData(prev => ({ ...prev, icon_url: '' }));
     }
-  }, [formData.app_store_id, editingApp]);
+  }, [formData.app_store_id, formData.app_store_country, editingApp]);
 
   const validateForm = () => {
     const newErrors = {};
     const appStoreIdVal = String(formData.app_store_id ?? '').trim();
+    const appStoreCountryVal = String(formData.app_store_country ?? '').trim().toLowerCase();
     const intervalOverrideVal = String(formData.interval_override ?? '').trim();
 
     if (!String(formData.name ?? '').trim()) newErrors.name = 'App Name is required';
@@ -127,6 +136,11 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
       newErrors.app_store_id = 'App Store ID is required';
     } else if (!/^\d+$/.test(appStoreIdVal)) {
       newErrors.app_store_id = 'App Store ID must be a number';
+    }
+    if (!appStoreCountryVal) {
+      newErrors.app_store_country = 'App Store country is required';
+    } else if (!/^[a-z]{2}$/i.test(appStoreCountryVal)) {
+      newErrors.app_store_country = 'Use a 2-letter country code (e.g., us, gb, in)';
     }
     
     destinations.forEach((dest, index) => {
@@ -166,8 +180,12 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
   const isFormValid = () => {
     const name = String(formData.name ?? '').trim();
     const appStoreId = String(formData.app_store_id ?? '').trim();
+    const appStoreCountry = String(formData.app_store_country ?? '').trim();
     const intervalOverride = String(formData.interval_override ?? '').trim();
     if (!name || !appStoreId || !/^\d+$/.test(appStoreId)) {
+      return false;
+    }
+    if (!appStoreCountry || !/^[a-z]{2}$/i.test(appStoreCountry)) {
       return false;
     }
     if (intervalOverride && !/^\d+[hmsd]$/i.test(intervalOverride)) {
@@ -178,7 +196,11 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    const nextValue = type === 'checkbox' ? checked : value;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'app_store_country' ? String(nextValue).toLowerCase() : nextValue
+    }));
     if (errors[name]) {
       setErrors(prev => { const newErrors = { ...prev }; delete newErrors[name]; return newErrors; });
     }
@@ -260,6 +282,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
 
     const submitData = {
       ...formData,
+      app_store_country: String(formData.app_store_country ?? 'us').trim().toLowerCase() || 'us',
       notification_destinations: notificationDestinations
     };
     
@@ -325,6 +348,21 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                   />
                   <span className="form-hint">Find this in the App Store URL: apps.apple.com/app/id<strong>123456789</strong></span>
                   {errors.app_store_id && <span className="form-error">{errors.app_store_id}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">App Store Country <span className="required">*</span></label>
+                  <input
+                    type="text"
+                    name="app_store_country"
+                    value={formData.app_store_country}
+                    onChange={handleChange}
+                    placeholder="us"
+                    className={`form-input ${errors.app_store_country ? 'error' : ''}`}
+                    maxLength={2}
+                  />
+                  <span className="form-hint">2-letter storefront code. Default is <code>us</code> if unchanged.</span>
+                  {errors.app_store_country && <span className="form-error">{errors.app_store_country}</span>}
                 </div>
 
                 <div className="form-group">
@@ -522,11 +560,14 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
             {!isFormValid() && (() => {
               const name = String(formData.name ?? '').trim();
               const appStoreId = String(formData.app_store_id ?? '').trim();
+              const appStoreCountry = String(formData.app_store_country ?? '').trim();
               const intervalOverride = String(formData.interval_override ?? '').trim();
               const missing = [];
               if (!name) missing.push('App Name');
               if (!appStoreId) missing.push('App Store ID');
               else if (!/^\d+$/.test(appStoreId)) missing.push('App Store ID must be numbers only');
+              if (!appStoreCountry) missing.push('App Store Country');
+              else if (!/^[a-z]{2}$/i.test(appStoreCountry)) missing.push('App Store Country must be a 2-letter code like us, gb, in');
               if (intervalOverride && !/^\d+[hmsd]$/i.test(intervalOverride)) missing.push('Check Interval: use format like 6h, 30m, 1d (no spaces)');
               return missing.length > 0 ? (
                 <div className="alert alert-warning" style={{ marginBottom: '16px' }}>
@@ -539,7 +580,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                 type="submit"
                 className="btn btn-primary btn-lg"
                 disabled={!isFormValid()}
-                title={!isFormValid() ? 'Required: App Name and App Store ID (numbers only). If you use Check Interval, use format like 6h, 30m, or 1d.' : undefined}
+                title={!isFormValid() ? 'Required: App Name, App Store ID (numbers only), and App Store Country (2 letters). If you use Check Interval, use format like 6h, 30m, or 1d.' : undefined}
               >
                 <Icons.Check /> {editingApp ? 'Update App' : 'Save App'}
               </button>

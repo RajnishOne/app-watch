@@ -60,6 +60,7 @@ def test_apps_crud_round_trip(tmp_path):
     assert saved["id"] == app_id
     assert saved["name"] == "Example App"
     assert saved["app_store_id"] == "123456789"
+    assert saved["app_store_country"] == "us"
 
     storage.save_last_version(app_id, "1.2.3")
     storage.save_current_version(app_id, "1.2.4")

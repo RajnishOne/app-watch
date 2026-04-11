@@ -38,11 +38,19 @@ class AppStoreMonitor:
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
     
-    def fetch_app_info(self, app_store_id):
+    def _normalize_country(self, country):
+        """Normalize App Store country code; default to US when invalid/missing."""
+        code = str(country or "us").strip().lower()
+        if len(code) != 2 or not code.isalpha():
+            return "us"
+        return code
+
+    def fetch_app_info(self, app_store_id, country="us"):
         """Fetch app information from iTunes Lookup API with retry logic"""
+        country_code = self._normalize_country(country)
         params = {
             'id': app_store_id,
-            'country': 'us'  # Default to US store
+            'country': country_code
         }
         
         last_exception = None
@@ -85,14 +93,14 @@ class AppStoreMonitor:
                 if attempt < self.MAX_RETRIES:
                     wait_time = self.RETRY_DELAY * (2 ** attempt)  # Exponential backoff
                     logger.warning(
-                        f"Attempt {attempt + 1}/{self.MAX_RETRIES + 1} failed for app {app_store_id}: {e}. "
+                        f"Attempt {attempt + 1}/{self.MAX_RETRIES + 1} failed for app {app_store_id} ({country_code}): {e}. "
                         f"Retrying in {wait_time}s..."
                     )
                     time.sleep(wait_time)
                 else:
-                    logger.error(f"All {self.MAX_RETRIES + 1} attempts failed for app {app_store_id}: {e}")
+                    logger.error(f"All {self.MAX_RETRIES + 1} attempts failed for app {app_store_id} ({country_code}): {e}")
             except Exception as e:
-                logger.error(f"Unexpected error fetching app info for {app_store_id}: {e}", exc_info=True)
+                logger.error(f"Unexpected error fetching app info for {app_store_id} ({country_code}): {e}", exc_info=True)
                 raise
         
         # If we exhausted all retries, raise the last exception
@@ -103,6 +111,7 @@ class AppStoreMonitor:
         """Check app for new version and post if needed"""
         app_id = app['id']
         app_store_id = app['app_store_id']
+        app_store_country = self._normalize_country(app.get('app_store_country', 'us'))
         
         # Get notification destinations - support both new format and legacy webhook_url
         notification_destinations = app.get('notification_destinations', [])
@@ -115,7 +124,7 @@ class AppStoreMonitor:
         
         try:
             # Fetch current app info
-            app_info = self.fetch_app_info(app_store_id)
+            app_info = self.fetch_app_info(app_store_id, app_store_country)
             
             if not app_info:
                 return {
@@ -261,6 +270,7 @@ class AppStoreMonitor:
         """Manually post current release notes to all configured notification destinations"""
         app_id = app['id']
         app_store_id = app['app_store_id']
+        app_store_country = self._normalize_country(app.get('app_store_country', 'us'))
         
         # Get notification destinations - support both new format and legacy webhook_url
         notification_destinations = app.get('notification_destinations', [])
@@ -273,7 +283,7 @@ class AppStoreMonitor:
         
         try:
             # Fetch current app info
-            app_info = self.fetch_app_info(app_store_id)
+            app_info = self.fetch_app_info(app_store_id, app_store_country)
             
             if not app_info:
                 return {

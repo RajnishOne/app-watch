@@ -535,10 +535,14 @@ def create_app():
     name = str(data['name']).strip()
     app_store_id = str(data['app_store_id']).strip()
     
+    app_store_country = str(data.get('app_store_country', 'us')).strip().lower()
+
     if not name:
         return jsonify({'error': 'App name cannot be empty'}), 400
     if not app_store_id or not app_store_id.isdigit():
         return jsonify({'error': 'App Store ID must be a number'}), 400
+    if len(app_store_country) != 2 or not app_store_country.isalpha():
+        return jsonify({'error': 'App Store country must be a 2-letter code (e.g., us, gb, in)'}), 400
     
     # Validate notification destinations if provided
     notification_destinations = data.get('notification_destinations', [])
@@ -571,6 +575,7 @@ def create_app():
     app_data = {
         'name': name,
         'app_store_id': app_store_id,
+        'app_store_country': app_store_country,
         'notification_destinations': notification_destinations,
         'interval_override': interval_override,
         'enabled': data.get('enabled', True)
@@ -579,7 +584,7 @@ def create_app():
     # Try to fetch and save icon URL if not provided
     if 'icon_url' not in data or not data.get('icon_url'):
         try:
-            app_info = monitor.fetch_app_info(app_store_id)
+            app_info = monitor.fetch_app_info(app_store_id, app_store_country)
             if app_info and app_info.get('artworkUrl'):
                 app_data['icon_url'] = app_info['artworkUrl']
         except Exception as e:
@@ -637,6 +642,14 @@ def update_app(app_id):
         if not app_store_id or not app_store_id.isdigit():
             return jsonify({'error': 'App Store ID must be a number'}), 400
         app['app_store_id'] = app_store_id
+
+    if 'app_store_country' in data:
+        app_store_country = str(data['app_store_country']).strip().lower() if data['app_store_country'] else 'us'
+        if len(app_store_country) != 2 or not app_store_country.isalpha():
+            return jsonify({'error': 'App Store country must be a 2-letter code (e.g., us, gb, in)'}), 400
+        app['app_store_country'] = app_store_country
+    elif not app.get('app_store_country'):
+        app['app_store_country'] = 'us'
     
     # Handle notification destinations
     if 'notification_destinations' in data:
@@ -677,10 +690,10 @@ def update_app(app_id):
     # Handle icon URL update
     if 'icon_url' in data:
         app['icon_url'] = data['icon_url']
-    elif 'app_store_id' in data:
+    elif 'app_store_id' in data or 'app_store_country' in data:
         # If app_store_id changed, try to fetch new icon
         try:
-            app_info = monitor.fetch_app_info(app['app_store_id'])
+            app_info = monitor.fetch_app_info(app['app_store_id'], app.get('app_store_country', 'us'))
             if app_info and app_info.get('artworkUrl'):
                 app['icon_url'] = app_info['artworkUrl']
         except Exception as e:
@@ -997,7 +1010,8 @@ def send_custom_message_to_webhook(destination, message, webhook_type):
 def get_app_metadata(app_store_id):
     """Fetch app metadata from App Store including icon"""
     try:
-        app_info = monitor.fetch_app_info(app_store_id)
+        country = request.args.get('country', 'us')
+        app_info = monitor.fetch_app_info(app_store_id, country)
         if not app_info:
             return jsonify({'error': 'App not found in App Store'}), 404
         

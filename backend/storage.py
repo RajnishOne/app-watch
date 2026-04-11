@@ -209,6 +209,7 @@ class StorageManager:
         save_data = {
             'name': app_data['name'],
             'app_store_id': app_data['app_store_id'],
+            'app_store_country': str(app_data.get('app_store_country', 'us')).strip().lower() or 'us',
             'interval_override': app_data.get('interval_override'),
             'enabled': app_data.get('enabled', True)
         }

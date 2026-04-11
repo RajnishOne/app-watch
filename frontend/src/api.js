@@ -44,8 +44,10 @@ export function putSettings(settingsToSave) {
   });
 }
 
-export function fetchAppMetadata(appStoreId) {
-  return fetch(`${API_BASE}/api/apps/metadata/${appStoreId}`);
+export function fetchAppMetadata(appStoreId, country = 'us') {
+  const normalizedCountry = String(country || 'us').trim().toLowerCase() || 'us';
+  const params = new URLSearchParams({ country: normalizedCountry });
+  return fetch(`${API_BASE}/api/apps/metadata/${appStoreId}?${params.toString()}`);
 }
 
 export function fetchAuthStatus() {

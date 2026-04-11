@@ -105,6 +105,7 @@ Before adding apps, you need to configure at least one notification destination.
 2. Fill in:
    - **App Name**: Any name you want (e.g., "My App")
    - **App Store ID**: The number you found in Step 5
+   - **App Store Country**: 2-letter store code (default `us`, e.g., `gb`, `in`, `jp`)
    - **Notification Destination**: Select your preferred platform (Discord, Slack, Telegram, Teams, Email, or Generic)
    - **Configure the destination**: Enter the required information based on your selected platform:
      - **Discord/Slack/Teams/Generic**: Paste the webhook URL
