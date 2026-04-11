@@ -7,3 +7,9 @@ services:
       - "8192:8192"
     volumes:
       - /docker-data/app-watch/data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8192/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s

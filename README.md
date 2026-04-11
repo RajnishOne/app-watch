@@ -336,11 +336,11 @@ services:
       - app-watch-network                      # Custom network name
     # Or use default network
     
-    # Health check (optional)
+    # Health check (optional) — uses lightweight /health (see Dockerfile HEALTHCHECK)
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8192/api/status"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8192/health"]
       interval: 30s                            # Check every 30 seconds
-      timeout: 10s                             # Timeout after 10 seconds
+      timeout: 5s                              # Fail if the probe runs longer than this
       retries: 3                               # Retry 3 times before marking unhealthy
       start_period: 40s                        # Grace period on startup
     
@@ -447,7 +447,27 @@ services:
 
 #### Health Check Options
 
-The health check verifies the container is running correctly by checking the `/api/status` endpoint. You can customize:
+The image defines a **`HEALTHCHECK`** that probes **`GET /health`** on `127.0.0.1` using the container’s **`PORT`** (default `8192`). That endpoint returns only `{"status":"ok"}` and does not run the scheduler or touch disk, so it is safe for frequent liveness probes.
+
+Use **`GET /api/status`** when you want richer JSON (version, scheduler thread, job count); it may restart the scheduler if the worker thread died, so it is better for monitoring than for high-frequency Docker health checks.
+
+If you override **`PORT`**, override the health check URL in Compose/Kubernetes to use the same port.
+
+**Kubernetes example (liveness):**
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8192
+  initialDelaySeconds: 40
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+```
+
+You can customize Compose `healthcheck` fields as needed:
+
 - `interval`: Time between health checks
 - `timeout`: Maximum time to wait for a response
 - `retries`: Number of consecutive failures before marking unhealthy
@@ -613,6 +633,7 @@ Configure reusable settings in the Settings page:
 
 The application provides a REST API for programmatic access. Integrations can send the API key from **Settings → Security** as `X-Api-Key: <your-key>` or `Authorization: Bearer <your-key>` where supported. **The server does not enforce authentication on these endpoints today**—whoever can reach the service can call the API—so rely on [network exposure controls](#security-and-network-exposure) for real protection, and still keep the API key private.
 
+- `GET /health` - Lightweight liveness (JSON `{"status":"ok"}`); intended for Docker/Kubernetes probes
 - `GET /api/apps` - List all configured apps
 - `POST /api/apps` - Create a new app configuration
 - `PUT /api/apps/:id` - Update an existing app
@@ -621,7 +642,7 @@ The application provides a REST API for programmatic access. Integrations can se
 - `POST /api/apps/:id/post` - Manually post current version to all configured notification destinations
 - `GET /api/settings` - Get application settings
 - `PUT /api/settings` - Update application settings
-- `GET /api/status` - Health check endpoint
+- `GET /api/status` - Status JSON (version, scheduler, jobs); may restart the scheduler if the worker thread died
 
 ## Technical Details
 

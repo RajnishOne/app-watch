@@ -448,6 +448,12 @@ def regenerate_api_key():
         return jsonify({'error': 'Failed to regenerate API key'}), 500
 
 
+@app.route('/health', methods=['GET'])
+def health():
+    """Liveness probe: no auth, disk I/O, or scheduler work — safe for frequent checks."""
+    return jsonify({'status': 'ok'}), 200
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_frontend(path):
