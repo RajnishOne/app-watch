@@ -24,6 +24,9 @@ WORKDIR /app
 ARG APP_VERSION
 ENV APP_VERSION=${APP_VERSION}
 ENV PORT=8192
+ENV GUNICORN_WORKERS=2
+ENV GUNICORN_THREADS=4
+ENV GUNICORN_TIMEOUT=60
 
 # Install curl for HEALTHCHECK
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
@@ -46,6 +49,7 @@ EXPOSE 8192
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD sh -c 'curl -fsS "http://127.0.0.1:$${PORT}/health" >/dev/null || exit 1'
 
-# Run the application
-CMD ["python", "-m", "backend.app"]
+# Run the application with a production WSGI server.
+# Tune workers/threads/timeouts via GUNICORN_* env vars.
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT} --workers ${GUNICORN_WORKERS} --threads ${GUNICORN_THREADS} --timeout ${GUNICORN_TIMEOUT} --worker-class gthread backend.app:app"]
 

@@ -324,6 +324,9 @@ services:
     environment:
       - CHECK_INTERVAL=12h                     # Default check interval (12h, 6h, 1d, 30m, etc.)
       - PORT=8192                              # Server port (default: 8192)
+      - GUNICORN_WORKERS=2                     # Gunicorn worker processes (container default: 2)
+      - GUNICORN_THREADS=4                     # Threads per worker (container default: 4)
+      - GUNICORN_TIMEOUT=60                    # Worker timeout in seconds (container default: 60)
       - TZ=America/New_York                    # Timezone (optional, e.g., UTC, Europe/London)
       - APP_VERSION=1.0.0                      # App version override (optional)
     # Alternative: use env_file
@@ -422,6 +425,9 @@ services:
 |----------|-------------|---------|-----------------|
 | `CHECK_INTERVAL` | Default check interval for apps without custom intervals | `12h` | `30m`, `6h`, `12h`, `1d`, `7d` |
 | `PORT` | Server port number | `8192` | Any valid port number (e.g., `3000`, `8080`) |
+| `GUNICORN_WORKERS` | Gunicorn worker process count | `2` | Integer (e.g., `2`, `3`, `4`) |
+| `GUNICORN_THREADS` | Threads per Gunicorn worker (`gthread`) | `4` | Integer (e.g., `2`, `4`, `8`) |
+| `GUNICORN_TIMEOUT` | Gunicorn worker request timeout (seconds) | `60` | Integer seconds (e.g., `30`, `60`, `120`) |
 | `TZ` | Timezone for timestamps and logging | System timezone | `UTC`, `America/New_York`, `Europe/London`, `Asia/Tokyo` |
 | `APP_VERSION` or `VERSION` | Application version override | Auto-detected | Version string (e.g., `1.0.0`) |
 
@@ -648,6 +654,7 @@ The application provides a REST API for programmatic access. Integrations can se
 
 - **Backend**: Python 3.11 with Flask
 - **Frontend**: React 18
+- **WSGI server**: Gunicorn (`gthread` worker class) in the container
 - **Scheduling**: Automatic checks using the `schedule` library
 - **Storage**: JSON-based file storage for app configurations
 - **Container**: Docker with multi-stage builds
