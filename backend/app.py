@@ -34,14 +34,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Determine static folder path
-static_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'dist')
-if not os.path.exists(static_folder):
-    static_folder = None
+# CRA build layout: frontend/dist/index.html and frontend/dist/static/js|css/...
+frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'dist')
+if not os.path.exists(frontend_dist):
+    frontend_dist = None
 
-# Use /static for built JS/CSS (matches CRA). static_url_path='' would register
-# /<path:filename> and steal SPA paths like /scheduler before serve_frontend runs.
-app = Flask(__name__, static_folder=static_folder, static_url_path='/static')
+# Flask static route must map URL /static/<file> to dist/static/<file>, not dist/<file>.
+# static_url_path='' registers /<path:filename> and steals SPA paths like /scheduler.
+flask_static_folder = (
+    os.path.join(frontend_dist, 'static')
+    if frontend_dist and os.path.isdir(os.path.join(frontend_dist, 'static'))
+    else None
+)
+app = Flask(__name__, static_folder=flask_static_folder, static_url_path='/static')
 # CORS - allow all origins for self-hosted use (restrict in production if needed)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
@@ -489,15 +494,14 @@ def serve_frontend(path):
     if path.startswith('api/'):
         return jsonify({'error': 'Not found'}), 404
     
-    if static_folder and os.path.exists(os.path.join(static_folder, 'index.html')):
-        # Serve static files if they exist
+    if frontend_dist and os.path.exists(os.path.join(frontend_dist, 'index.html')):
+        # Serve root assets (favicon, manifest, …) and CRA files under dist/static/...
         if path:
-            static_path = os.path.join(static_folder, path)
-            if os.path.exists(static_path) and os.path.isfile(static_path):
-                return send_from_directory(static_folder, path)
-        
-        # Fallback to index.html for SPA routing
-        return send_from_directory(static_folder, 'index.html')
+            file_path = os.path.join(frontend_dist, path)
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                return send_from_directory(frontend_dist, path)
+
+        return send_from_directory(frontend_dist, 'index.html')
     else:
         return jsonify({'message': 'Frontend not built. Please build the frontend first.'}), 503
 
