@@ -41,7 +41,7 @@ app = Flask(__name__, static_folder=static_folder, static_url_path='')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Initialize components
-storage = StorageManager(Path('/data'))
+storage = StorageManager(Path(os.getenv('DATA_DIR', '/data')))
 # Load settings for formatter and notification handler
 settings = storage.get_settings()
 formatter = DiscordFormatter(settings)
@@ -50,6 +50,11 @@ monitor = AppStoreMonitor(storage, formatter, settings)
 # Global scheduler thread
 scheduler_thread = None
 scheduler_running = False
+
+
+def scheduler_is_disabled():
+    """Allow tests and constrained environments to opt out of scheduler threads."""
+    return os.getenv('DISABLE_SCHEDULER', '').lower() in {'1', 'true', 'yes'}
 
 
 def load_apps():
@@ -347,6 +352,10 @@ def run_scheduler():
 def setup_scheduler():
     """Setup scheduled checks for all apps"""
     global scheduler_thread
+
+    if scheduler_is_disabled():
+        logger.info("Scheduler initialization skipped (DISABLE_SCHEDULER enabled)")
+        return
     
     # Clear existing jobs
     schedule.clear()

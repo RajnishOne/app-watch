@@ -659,6 +659,15 @@ The application provides a REST API for programmatic access. Integrations can se
 - **Storage**: JSON-based file storage for app configurations
 - **Container**: Docker with multi-stage builds
 
+## Running Tests
+
+App Watch includes a small pytest suite that covers storage behavior and core API endpoints.
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest
+```
+
 ## Contributing
 
 Contributions are welcome! If you'd like to contribute:
