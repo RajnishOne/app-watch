@@ -130,7 +130,7 @@ You can add more apps by clicking **"Add App"** again. Each app can use differen
 
 **If you expose the app beyond your own machine** (LAN, VPS, port forwarding, cloud host, etc.), you are responsible for restricting who can reach it. Common approaches:
 
-- **Reverse proxy with TLS**: Place [Caddy](https://caddyserver.com/), [nginx](https://nginx.org/), [Traefik](https://traefik.io/), or another reverse proxy in front of the container, terminate HTTPS at the proxy, and apply any access rules or authentication the proxy supports.
+- **Reverse proxy with TLS**: Place [Caddy](https://caddyserver.com/), [nginx](https://nginx.org/), [Traefik](https://traefik.io/), or another reverse proxy in front of the container, terminate HTTPS at the proxy, and apply any access rules or authentication the proxy supports. Forward the whole site to the app’s HTTP port (not only `/`) so browser reloads on client routes such as `/scheduler` reach the backend; if the proxy serves static files itself, use an SPA fallback (`try_files` to `index.html`) for unknown paths.
 - **Private network access**: Use [Tailscale](https://tailscale.com/), [WireGuard](https://www.wireguard.com/), another VPN, or SSH port forwarding so the UI is only reachable from trusted devices, not from the public internet.
 - **Firewall and binding**: Restrict inbound traffic with host or cloud firewall rules so only trusted networks or IPs can reach the app port. You can also bind the published port to localhost only (for example `127.0.0.1:8192:8192` in Docker Compose) and access the UI via SSH tunnel or VPN.
 

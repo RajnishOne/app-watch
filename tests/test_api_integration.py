@@ -9,6 +9,12 @@ def _load_app_module(tmp_path, monkeypatch):
     return importlib.import_module("backend.app")
 
 
+def test_static_url_path_allows_spa_deep_links(tmp_path, monkeypatch):
+    """CRA serves assets under /static; root catchall must not be Flask's static route."""
+    app_module = _load_app_module(tmp_path, monkeypatch)
+    assert app_module.app.static_url_path == "/static"
+
+
 def test_apps_and_status_endpoints_with_flask_client(tmp_path, monkeypatch):
     app_module = _load_app_module(tmp_path, monkeypatch)
     client = app_module.app.test_client()

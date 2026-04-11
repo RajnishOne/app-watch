@@ -39,7 +39,9 @@ static_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'fronte
 if not os.path.exists(static_folder):
     static_folder = None
 
-app = Flask(__name__, static_folder=static_folder, static_url_path='')
+# Use /static for built JS/CSS (matches CRA). static_url_path='' would register
+# /<path:filename> and steal SPA paths like /scheduler before serve_frontend runs.
+app = Flask(__name__, static_folder=static_folder, static_url_path='/static')
 # CORS - allow all origins for self-hosted use (restrict in production if needed)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
