@@ -10,12 +10,15 @@ import time
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory, Response
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import requests
 import schedule
 
 from backend.app_store import AppStoreMonitor
+from backend.blueprints.apps import create_apps_blueprint
+from backend.blueprints.history import create_history_blueprint
+from backend.blueprints.settings import create_settings_blueprint
+from backend.blueprints.webhooks import create_webhooks_blueprint
 from backend.formatter import DiscordFormatter
 from backend.storage import StorageManager
 from backend.version import get_version
@@ -333,6 +336,19 @@ def post_to_discord(app_id):
         return {'error': str(e)}, 500
 
 
+def fetch_app_info(app_store_id, country='us'):
+    """Proxy through current monitor instance (supports runtime monitor reload)."""
+    return monitor.fetch_app_info(app_store_id, country)
+
+
+def reload_monitor(current_settings=None):
+    """Reload monitor and formatter with current settings."""
+    global monitor, formatter
+    settings_obj = current_settings if current_settings is not None else storage.get_settings()
+    formatter = DiscordFormatter(settings_obj)
+    monitor = AppStoreMonitor(storage, formatter, settings_obj)
+
+
 def run_scheduler():
     """Run the scheduler loop"""
     global scheduler_running
@@ -509,620 +525,51 @@ def status():
     })
 
 
-@app.route('/api/apps', methods=['GET'])
-@require_auth(storage)
-def get_apps():
-    """Get all apps"""
-    apps = load_apps()
-    return jsonify(apps)
+app.register_blueprint(
+    create_apps_blueprint(
+        storage=storage,
+        require_auth=require_auth,
+        load_apps=load_apps,
+        save_app=save_app,
+        delete_app=delete_app,
+        parse_interval=parse_interval,
+        validate_notification_destination=validate_notification_destination,
+        setup_scheduler=setup_scheduler,
+        check_app=check_app,
+        post_to_discord=post_to_discord,
+        fetch_app_info=fetch_app_info,
+        logger=logger,
+    )
+)
 
+app.register_blueprint(
+    create_webhooks_blueprint(
+        storage=storage,
+        require_auth=require_auth,
+        load_apps=load_apps,
+        logger=logger,
+    )
+)
 
-@app.route('/api/apps', methods=['POST'])
-@require_auth(storage)
-def create_app():
-    """Create a new app"""
-    if not request.json:
-        return jsonify({'error': 'Request body must be JSON'}), 400
-    
-    data = request.json
-    
-    required_fields = ['name', 'app_store_id']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'error': f'Missing required field: {field}'}), 400
-    
-    # Input validation
-    name = str(data['name']).strip()
-    app_store_id = str(data['app_store_id']).strip()
-    
-    app_store_country = str(data.get('app_store_country', 'us')).strip().lower()
+app.register_blueprint(
+    create_history_blueprint(
+        storage=storage,
+        require_auth=require_auth,
+        logger=logger,
+    )
+)
 
-    if not name:
-        return jsonify({'error': 'App name cannot be empty'}), 400
-    if not app_store_id or not app_store_id.isdigit():
-        return jsonify({'error': 'App Store ID must be a number'}), 400
-    if len(app_store_country) != 2 or not app_store_country.isalpha():
-        return jsonify({'error': 'App Store country must be a 2-letter code (e.g., us, gb, in)'}), 400
-    
-    # Validate notification destinations if provided
-    notification_destinations = data.get('notification_destinations', [])
-    if not isinstance(notification_destinations, list):
-        return jsonify({'error': 'notification_destinations must be an array'}), 400
-    
-    # Validate each destination
-    current_settings = storage.get_settings()
-    for dest in notification_destinations:
-        is_valid, error_msg = validate_notification_destination(dest, current_settings)
-        if not is_valid:
-            return jsonify({'error': error_msg}), 400
-    
-    # Legacy support - if webhook_url is provided but no notification_destinations, convert it
-    if not notification_destinations and 'webhook_url' in data:
-        webhook_url = str(data['webhook_url']).strip()
-        if webhook_url:
-            if not webhook_url.startswith('https://discord.com/api/webhooks/'):
-                return jsonify({'error': 'Invalid Discord webhook URL'}), 400
-            notification_destinations = [{'type': 'discord', 'webhook_url': webhook_url}]
-    
-    # Validate interval if provided
-    interval_override = data.get('interval_override', '').strip() if data.get('interval_override') else None
-    if interval_override:
-        try:
-            parse_interval(interval_override)
-        except (ValueError, AttributeError):
-            return jsonify({'error': 'Invalid interval format. Use format like: 6h, 30m, 1d'}), 400
-    
-    app_data = {
-        'name': name,
-        'app_store_id': app_store_id,
-        'app_store_country': app_store_country,
-        'notification_destinations': notification_destinations,
-        'interval_override': interval_override,
-        'enabled': data.get('enabled', True)
-    }
-    
-    # Try to fetch and save icon URL if not provided
-    if 'icon_url' not in data or not data.get('icon_url'):
-        try:
-            app_info = monitor.fetch_app_info(app_store_id, app_store_country)
-            if app_info and app_info.get('artworkUrl'):
-                app_data['icon_url'] = app_info['artworkUrl']
-        except Exception as e:
-            logger.warning(f"Could not fetch icon for app {app_store_id}: {e}")
-    else:
-        app_data['icon_url'] = data.get('icon_url')
-    
-    try:
-        app_id = save_app(app_data)
-        setup_scheduler()  # Reschedule
-        # Log app creation
-        storage.add_history_entry(
-            event_type='app_created',
-            app_id=app_id,
-            app_name=name,
-            status='success',
-            message=f'App "{name}" created',
-            details={'app_store_id': app_store_id, 'enabled': app_data.get('enabled', True)}
-        )
-        return jsonify({'id': app_id, **app_data}), 201
-    except Exception as e:
-        logger.error(f"Error creating app: {e}", exc_info=True)
-        storage.add_history_entry(
-            event_type='app_created',
-            app_name=name,
-            status='error',
-            message=f'Failed to create app "{name}"',
-            details={'error': str(e)}
-        )
-        return jsonify({'error': 'Failed to create app'}), 500
-
-
-@app.route('/api/apps/<app_id>', methods=['PUT'])
-@require_auth(storage)
-def update_app(app_id):
-    """Update an app"""
-    if not request.json:
-        return jsonify({'error': 'Request body must be JSON'}), 400
-    
-    data = request.json
-    
-    app = storage.get_app(app_id)
-    if not app:
-        return jsonify({'error': 'App not found'}), 404
-    
-    # Update fields with validation
-    if 'name' in data:
-        name = str(data['name']).strip()
-        if not name:
-            return jsonify({'error': 'App name cannot be empty'}), 400
-        app['name'] = name
-    
-    if 'app_store_id' in data:
-        app_store_id = str(data['app_store_id']).strip()
-        if not app_store_id or not app_store_id.isdigit():
-            return jsonify({'error': 'App Store ID must be a number'}), 400
-        app['app_store_id'] = app_store_id
-
-    if 'app_store_country' in data:
-        app_store_country = str(data['app_store_country']).strip().lower() if data['app_store_country'] else 'us'
-        if len(app_store_country) != 2 or not app_store_country.isalpha():
-            return jsonify({'error': 'App Store country must be a 2-letter code (e.g., us, gb, in)'}), 400
-        app['app_store_country'] = app_store_country
-    elif not app.get('app_store_country'):
-        app['app_store_country'] = 'us'
-    
-    # Handle notification destinations
-    if 'notification_destinations' in data:
-        notification_destinations = data['notification_destinations']
-        if not isinstance(notification_destinations, list):
-            return jsonify({'error': 'notification_destinations must be an array'}), 400
-        
-        # Validate each destination
-        current_settings = storage.get_settings()
-        for dest in notification_destinations:
-            is_valid, error_msg = validate_notification_destination(dest, current_settings)
-            if not is_valid:
-                return jsonify({'error': error_msg}), 400
-        
-        app['notification_destinations'] = notification_destinations
-    
-    # Legacy support - if webhook_url is provided, convert it
-    elif 'webhook_url' in data:
-        webhook_url = str(data['webhook_url']).strip()
-        if webhook_url:
-            if not webhook_url.startswith('https://discord.com/api/webhooks/'):
-                return jsonify({'error': 'Invalid Discord webhook URL'}), 400
-            app['notification_destinations'] = [{'type': 'discord', 'webhook_url': webhook_url}]
-    
-    if 'interval_override' in data:
-        interval_override = data['interval_override']
-        if interval_override:
-            interval_override = str(interval_override).strip()
-            try:
-                parse_interval(interval_override)
-            except (ValueError, AttributeError):
-                return jsonify({'error': 'Invalid interval format. Use format like: 6h, 30m, 1d'}), 400
-        app['interval_override'] = interval_override if interval_override else None
-    
-    if 'enabled' in data:
-        app['enabled'] = bool(data['enabled'])
-    
-    # Handle icon URL update
-    if 'icon_url' in data:
-        app['icon_url'] = data['icon_url']
-    elif 'app_store_id' in data or 'app_store_country' in data:
-        # If app_store_id changed, try to fetch new icon
-        try:
-            app_info = monitor.fetch_app_info(app['app_store_id'], app.get('app_store_country', 'us'))
-            if app_info and app_info.get('artworkUrl'):
-                app['icon_url'] = app_info['artworkUrl']
-        except Exception as e:
-            logger.warning(f"Could not fetch icon for app {app['app_store_id']}: {e}")
-    
-    try:
-        app_name = app.get('name', 'Unknown')
-        save_app(app)
-        setup_scheduler()  # Reschedule
-        # Log app update
-        storage.add_history_entry(
-            event_type='app_updated',
-            app_id=app_id,
-            app_name=app_name,
-            status='success',
-            message=f'App "{app_name}" updated',
-            details={'enabled': app.get('enabled', True)}
-        )
-        return jsonify(app)
-    except Exception as e:
-        logger.error(f"Error updating app {app_id}: {e}", exc_info=True)
-        app_name = app.get('name', 'Unknown') if 'app' in locals() else 'Unknown'
-        storage.add_history_entry(
-            event_type='app_updated',
-            app_id=app_id,
-            app_name=app_name,
-            status='error',
-            message=f'Failed to update app "{app_name}"',
-            details={'error': str(e)}
-        )
-        return jsonify({'error': 'Failed to update app'}), 500
-
-
-@app.route('/api/apps/<app_id>', methods=['DELETE'])
-@require_auth(storage)
-def remove_app(app_id):
-    """Delete an app"""
-    app = storage.get_app(app_id)
-    app_name = app.get('name', 'Unknown') if app else 'Unknown'
-    
-    if delete_app(app_id):
-        setup_scheduler()  # Reschedule
-        # Log app deletion
-        storage.add_history_entry(
-            event_type='app_deleted',
-            app_id=app_id,
-            app_name=app_name,
-            status='success',
-            message=f'App "{app_name}" deleted'
-        )
-        return jsonify({'message': 'App deleted'}), 200
-    else:
-        return jsonify({'error': 'App not found'}), 404
-
-
-@app.route('/api/apps/<app_id>/check', methods=['POST'])
-@require_auth(storage)
-def check_app_endpoint(app_id):
-    """Manually check an app for updates"""
-    result, status_code = check_app(app_id)
-    return jsonify(result), status_code
-
-
-@app.route('/api/apps/<app_id>/post', methods=['POST'])
-@require_auth(storage)
-def post_app_endpoint(app_id):
-    """Manually post release notes to all configured notification destinations"""
-    result, status_code = post_to_discord(app_id)
-    return jsonify(result), status_code
-
-
-@app.route('/api/apps/<app_id>/icon', methods=['GET'])
-@require_auth(storage)
-def get_app_icon(app_id):
-    """Serve app icon from stored icon_url (proxied from server to avoid client using Apple URLs)."""
-    app = storage.get_app(app_id)
-    if not app:
-        return jsonify({'error': 'App not found'}), 404
-    icon_url = app.get('icon_url')
-    if not icon_url or not icon_url.strip():
-        return jsonify({'error': 'No icon'}), 404
-    try:
-        resp = requests.get(icon_url, timeout=10, stream=True)
-        resp.raise_for_status()
-        content_type = resp.headers.get('Content-Type', 'image/png')
-        # Restrict to image types
-        if not content_type.startswith('image/'):
-            content_type = 'image/png'
-        return Response(resp.iter_content(chunk_size=8192), mimetype=content_type)
-    except Exception as e:
-        logger.warning(f"Could not fetch icon for app {app_id}: {e}")
-        return jsonify({'error': 'Could not load icon'}), 404
-
-
-@app.route('/api/webhooks/list', methods=['GET'])
-@require_auth(storage)
-def list_webhooks():
-    """Get all webhooks from all apps for selection"""
-    try:
-        apps = load_apps()
-        webhooks = []
-        
-        for app in apps:
-            app_name = app.get('name', 'Unknown')
-            notification_destinations = app.get('notification_destinations', [])
-            
-            # Support legacy webhook_url
-            if not notification_destinations and app.get('webhook_url'):
-                notification_destinations = [{
-                    'type': 'discord',
-                    'webhook_url': app['webhook_url']
-                }]
-            
-            for dest in notification_destinations:
-                dest_type = dest.get('type', '').lower()
-                webhook_url = dest.get('webhook_url', '').strip()
-                
-                # Only include webhook-based destinations
-                if dest_type in ['discord', 'slack', 'teams', 'generic'] and webhook_url:
-                    webhooks.append({
-                        'id': f"{app['id']}_{len(webhooks)}",
-                        'app_name': app_name,
-                        'app_id': app['id'],
-                        'type': dest_type,
-                        'webhook_url': webhook_url,
-                        'label': f"{app_name} - {dest_type.capitalize()}"
-                    })
-        
-        return jsonify({'webhooks': webhooks})
-    except Exception as e:
-        logger.error(f"Error listing webhooks: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to list webhooks'}), 500
-
-
-@app.route('/api/webhooks/send', methods=['POST'])
-@require_auth(storage)
-def send_custom_webhook():
-    """Send custom message to webhook(s)"""
-    if not request.json:
-        return jsonify({'error': 'Request body must be JSON'}), 400
-    
-    data = request.json
-    message = data.get('message', '').strip()
-    webhook_urls = data.get('webhook_urls', [])
-    
-    if not message:
-        return jsonify({'error': 'Message is required'}), 400
-    
-    if not webhook_urls or not isinstance(webhook_urls, list) or len(webhook_urls) == 0:
-        return jsonify({'error': 'At least one webhook URL is required'}), 400
-    
-    # Validate webhook URLs
-    for url in webhook_urls:
-        if not isinstance(url, str) or not url.strip():
-            return jsonify({'error': 'Invalid webhook URL'}), 400
-        if not url.startswith('http://') and not url.startswith('https://'):
-            return jsonify({'error': 'Webhook URL must start with http:// or https://'}), 400
-    
-    try:
-        success_count = 0
-        error_messages = []
-        results = []
-        
-        for webhook_url in webhook_urls:
-            webhook_url = webhook_url.strip()
-            
-            # Determine webhook type from URL
-            webhook_type = 'generic'
-            if webhook_url.startswith('https://discord.com/api/webhooks/'):
-                webhook_type = 'discord'
-            elif webhook_url.startswith('https://hooks.slack.com/'):
-                webhook_type = 'slack'
-            elif 'office.com' in webhook_url or 'office365' in webhook_url:
-                webhook_type = 'teams'
-            
-            # Create destination object
-            destination = {
-                'type': webhook_type,
-                'webhook_url': webhook_url
-            }
-            
-            # Send message using NotificationHandler
-            # For custom messages, we'll send the message directly as content
-            success, error_msg = send_custom_message_to_webhook(destination, message, webhook_type)
-            
-            if success:
-                success_count += 1
-                results.append({'webhook_url': webhook_url, 'status': 'success'})
-            else:
-                error_messages.append(f"{webhook_url}: {error_msg or 'Failed'}")
-                results.append({'webhook_url': webhook_url, 'status': 'error', 'error': error_msg})
-        
-        # Log the broadcast
-        storage.add_history_entry(
-            event_type='webhook_broadcast',
-            app_id=None,
-            app_name='Custom Message',
-            status='success' if success_count > 0 else 'error',
-            message=f'Custom message sent to {success_count} webhook(s)',
-            details={
-                'message': message,
-                'success_count': success_count,
-                'failed_count': len(error_messages),
-                'total_webhooks': len(webhook_urls),
-                'results': results
-            }
-        )
-        
-        if success_count > 0:
-            response_message = f'Message sent to {success_count} webhook(s)'
-            if error_messages:
-                response_message += f' ({len(error_messages)} failed)'
-            return jsonify({
-                'success': True,
-                'message': response_message,
-                'success_count': success_count,
-                'failed_count': len(error_messages),
-                'results': results
-            })
-        else:
-            error_msg = 'Failed to send to any webhook'
-            if error_messages:
-                error_msg = '; '.join(error_messages[:3])  # Limit error messages
-            return jsonify({
-                'success': False,
-                'error': error_msg,
-                'success_count': 0,
-                'failed_count': len(error_messages),
-                'results': results
-            }), 500
-            
-    except Exception as e:
-        logger.error(f"Error sending custom webhook message: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
-
-
-def send_custom_message_to_webhook(destination, message, webhook_type):
-    """Send custom message to a webhook destination"""
-    webhook_url = destination.get('webhook_url', '').strip()
-    if not webhook_url:
-        return False, 'Webhook URL is required'
-    
-    try:
-        if webhook_type == 'discord':
-            payload = {'content': message}
-            response = requests.post(webhook_url, json=payload, timeout=10)
-            response.raise_for_status()
-            return True, None
-        elif webhook_type == 'slack':
-            payload = {'text': message}
-            response = requests.post(webhook_url, json=payload, timeout=10)
-            response.raise_for_status()
-            return True, None
-        elif webhook_type == 'teams':
-            payload = {
-                '@type': 'MessageCard',
-                '@context': 'https://schema.org/extensions',
-                'summary': 'Custom Message',
-                'themeColor': '0078D4',
-                'title': 'Custom Message',
-                'text': message
-            }
-            response = requests.post(webhook_url, json=payload, timeout=10)
-            response.raise_for_status()
-            return True, None
-        else:  # generic
-            payload = {'message': message, 'content': message}
-            response = requests.post(webhook_url, json=payload, timeout=10)
-            response.raise_for_status()
-            return True, None
-    except requests.exceptions.ConnectionError as e:
-        error_str = str(e).lower()
-        if 'name resolution' in error_str or 'failed to resolve' in error_str or 'dns' in error_str:
-            logger.error(f"DNS resolution error for webhook {webhook_url}: {e}")
-            return False, 'Network error: Unable to resolve webhook hostname. Please check your internet connection and DNS settings.'
-        elif 'connection refused' in error_str or 'connection timeout' in error_str:
-            logger.error(f"Connection error for webhook {webhook_url}: {e}")
-            return False, 'Connection error: Unable to connect to webhook server. Please check the webhook URL and your network connection.'
-        else:
-            logger.error(f"Connection error for webhook {webhook_url}: {e}")
-            return False, 'Connection error: Unable to reach webhook server. Please check your network connection.'
-    except requests.exceptions.Timeout as e:
-        logger.error(f"Timeout error for webhook {webhook_url}: {e}")
-        return False, 'Request timeout: The webhook server did not respond in time. Please try again later.'
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP error for webhook {webhook_url}: {e}")
-        status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
-        if status_code == 404:
-            return False, 'Webhook not found (404). Please verify the webhook URL is correct.'
-        elif status_code == 401 or status_code == 403:
-            return False, 'Webhook authentication failed. Please verify the webhook URL is valid and not expired.'
-        elif status_code == 429:
-            return False, 'Rate limit exceeded. Please wait a moment before trying again.'
-        else:
-            return False, f'HTTP error ({status_code or "unknown"}): Webhook server returned an error.'
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error posting to webhook {webhook_url}: {e}")
-        # Provide a cleaner error message
-        error_str = str(e)
-        if 'HTTPSConnectionPool' in error_str or 'HTTPConnectionPool' in error_str:
-            # Extract the actual error message
-            if 'Caused by' in error_str:
-                error_str = error_str.split('Caused by')[-1].strip()
-            else:
-                # Try to extract meaningful part
-                parts = error_str.split(':')
-                if len(parts) > 1:
-                    error_str = parts[-1].strip()
-        return False, f'Failed to send message: {error_str}'
-
-
-@app.route('/api/apps/metadata/<app_store_id>', methods=['GET'])
-@require_auth(storage)
-def get_app_metadata(app_store_id):
-    """Fetch app metadata from App Store including icon"""
-    try:
-        country = request.args.get('country', 'us')
-        app_info = monitor.fetch_app_info(app_store_id, country)
-        if not app_info:
-            return jsonify({'error': 'App not found in App Store'}), 404
-        
-        return jsonify({
-            'trackName': app_info.get('trackName'),
-            'artistName': app_info.get('artistName'),
-            'artworkUrl': app_info.get('artworkUrl'),
-            'version': app_info.get('version'),
-            'bundleId': app_info.get('bundleId')
-        })
-    except Exception as e:
-        logger.error(f"Error fetching app metadata: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/logs', methods=['GET'])
-@require_auth(storage)
-def get_logs():
-    """Get recent logs (simplified - in production use proper log aggregation)"""
-    # For now, return empty. In production, you'd read from log files
-    return jsonify({'logs': []})
-
-
-@app.route('/api/history', methods=['GET'])
-@require_auth(storage)
-def get_history():
-    """Get activity history with optional filtering"""
-    try:
-        # Get query parameters
-        limit = request.args.get('limit', default=100, type=int)
-        event_type = request.args.get('event_type', default=None, type=str)
-        app_id = request.args.get('app_id', default=None, type=str)
-        status = request.args.get('status', default=None, type=str)
-        start_date = request.args.get('start_date', default=None, type=str)
-        end_date = request.args.get('end_date', default=None, type=str)
-        
-        # Validate limit
-        if limit < 1 or limit > 1000:
-            limit = 100
-        
-        history = storage.get_history(
-            limit=limit,
-            event_type=event_type,
-            app_id=app_id,
-            status=status,
-            start_date=start_date,
-            end_date=end_date
-        )
-        
-        return jsonify({
-            'history': history,
-            'count': len(history)
-        })
-    except Exception as e:
-        logger.error(f"Error getting history: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to get history'}), 500
-
-
-@app.route('/api/settings', methods=['GET'])
-@require_auth(storage)
-def get_settings():
-    """Get application settings"""
-    try:
-        settings = storage.get_settings()
-        settings['version'] = APP_VERSION
-        return jsonify(settings)
-    except Exception as e:
-        logger.error(f"Error getting settings: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to get settings'}), 500
-
-
-@app.route('/api/settings', methods=['PUT'])
-@require_auth(storage)
-def update_settings():
-    """Update application settings"""
-    if not request.json:
-        return jsonify({'error': 'Request body must be JSON'}), 400
-    
-    data = request.json
-    
-    # Validate settings
-    if 'default_interval' in data:
-        interval = data['default_interval']
-        if interval:
-            try:
-                parse_interval(interval)
-            except (ValueError, AttributeError):
-                return jsonify({'error': 'Invalid interval format. Use format like: 6h, 30m, 1d'}), 400
-    
-    try:
-        current_settings = storage.get_settings()
-        # Merge with new settings
-        current_settings.update(data)
-        storage.save_settings(current_settings)
-        
-        # Reschedule jobs if interval changed
-        if 'default_interval' in data:
-            setup_scheduler()
-        
-        # Reload formatter and monitor with new settings
-        global monitor, formatter
-        formatter = DiscordFormatter(current_settings)
-        monitor = AppStoreMonitor(storage, formatter, current_settings)
-        
-        # If auto_post_on_update setting changed, reschedule to ensure monitor has latest settings
-        setup_scheduler()
-        
-        return jsonify(current_settings)
-    except Exception as e:
-        logger.error(f"Error updating settings: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to update settings'}), 500
+app.register_blueprint(
+    create_settings_blueprint(
+        storage=storage,
+        require_auth=require_auth,
+        parse_interval=parse_interval,
+        setup_scheduler=setup_scheduler,
+        app_version=APP_VERSION,
+        reload_monitor=reload_monitor,
+        logger=logger,
+    )
+)
 
 
 # Initialize scheduler when module loads
@@ -1131,14 +578,6 @@ try:
     setup_scheduler()
 except Exception as e:
     logger.error(f"Failed to initialize scheduler: {e}", exc_info=True)
-
-# Reload monitor when settings change (helper function)
-def reload_monitor():
-    """Reload monitor with current settings"""
-    global monitor, formatter
-    current_settings = storage.get_settings()
-    formatter = DiscordFormatter(current_settings)
-    monitor = AppStoreMonitor(storage, formatter, current_settings)
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8192))
