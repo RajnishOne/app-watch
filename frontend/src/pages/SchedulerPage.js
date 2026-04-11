@@ -26,13 +26,8 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
       if (filterParams.app_id || filters.app_id) params.append('app_id', filterParams.app_id || filters.app_id);
       if (filterParams.status || filters.status) params.append('status', filterParams.status || filters.status);
 
-      const response = await fetchHistoryQuery(params.toString());
-      if (response.ok) {
-        const data = await response.json();
-        setHistory(data.history || []);
-      } else {
-        showMessage('Failed to load scheduler history', 'error');
-      }
+      const data = await fetchHistoryQuery(params.toString());
+      setHistory(data.history || []);
     } catch (error) {
       showMessage('Error loading scheduler history: ' + error.message, 'error');
     } finally {

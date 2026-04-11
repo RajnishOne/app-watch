@@ -62,8 +62,7 @@ export function AppCard({ app, onEdit, onDelete, onCheck, onPost, checking, post
   const loadPreview = async () => {
     setLoadingPreview(true);
     try {
-      const response = await checkApp(app.id);
-      const data = await response.json();
+      const data = await checkApp(app.id);
       if (data.formatted_preview) {
         setPreview(data.formatted_preview);
       } else if (!data.success && data.error) {

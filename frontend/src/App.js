@@ -67,10 +67,10 @@ function App() {
         setCurrentPage('edit-app');
         const appId = path.split('/edit-app/')[1];
         if (appId && !editingApp) {
-          fetchApps()
-            .then(response => response.json())
-            .then(apps => {
-              const app = apps.find(a => a.id === appId);
+          (async () => {
+            try {
+              const apps = await fetchApps();
+              const app = apps.find((a) => a.id === appId);
               if (app) {
                 setEditingApp(app);
               } else {
@@ -78,12 +78,12 @@ function App() {
                 setEditingApp(null);
                 window.history.replaceState({ page: 'dashboard' }, '', '/');
               }
-            })
-            .catch(() => {
+            } catch {
               setCurrentPage('dashboard');
               setEditingApp(null);
               window.history.replaceState({ page: 'dashboard' }, '', '/');
-            });
+            }
+          })();
         }
       } else if (path === '/settings' || path.includes('/settings')) {
         setCurrentPage('settings');
@@ -119,16 +119,9 @@ function App() {
     try {
       loadingAppsRef.current = true;
       setLoading(true);
-      const response = await fetchApps();
-      if (response.ok) {
-        const data = await response.json();
-        setApps(data);
-        appsLoadedRef.current = true;
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to load apps' }));
-        const friendlyError = getHumanReadableError(errorData.error || 'Failed to load apps');
-        showMessage(friendlyError, 'error');
-      }
+      const data = await fetchApps();
+      setApps(data);
+      appsLoadedRef.current = true;
     } catch (error) {
       const friendlyError = getHumanReadableError(error.message || 'Network error occurred');
       showMessage(friendlyError, 'error');
@@ -183,17 +176,10 @@ function App() {
     if (!window.confirm('Are you sure you want to delete this app?')) return;
 
     try {
-      const response = await deleteApp(appId);
-
-      if (response.ok) {
-        showMessage('App deleted successfully');
-        appsLoadedRef.current = false;
-        loadApps();
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to delete app' }));
-        const friendlyError = getHumanReadableError(errorData.error || 'Failed to delete app');
-        showMessage(friendlyError, 'error');
-      }
+      await deleteApp(appId);
+      showMessage('App deleted successfully');
+      appsLoadedRef.current = false;
+      loadApps();
     } catch (error) {
       const friendlyError = getHumanReadableError(error.message || 'Network error occurred');
       showMessage(friendlyError, 'error');
@@ -203,22 +189,15 @@ function App() {
   const handleCheckApp = async (appId) => {
     setChecking({ ...checking, [appId]: true });
     try {
-      const response = await checkApp(appId);
-
-      const data = await response.json();
-      if (response.ok) {
-        if (data.success) {
-          showMessage(data.message || 'Check completed successfully', 'success');
-        } else {
-          const friendlyError = getHumanReadableError(data.error);
-          showMessage(friendlyError, 'error');
-        }
-        appsLoadedRef.current = false;
-        loadApps();
+      const data = await checkApp(appId);
+      if (data.success) {
+        showMessage(data.message || 'Check completed successfully', 'success');
       } else {
-        const friendlyError = getHumanReadableError(data.error || 'Check failed');
+        const friendlyError = getHumanReadableError(data.error);
         showMessage(friendlyError, 'error');
       }
+      appsLoadedRef.current = false;
+      loadApps();
     } catch (error) {
       const friendlyError = getHumanReadableError(error.message || 'Network error occurred');
       showMessage(friendlyError, 'error');
@@ -230,22 +209,15 @@ function App() {
   const handlePostApp = async (appId) => {
     setPosting({ ...posting, [appId]: true });
     try {
-      const response = await postApp(appId);
-
-      const data = await response.json();
-      if (response.ok) {
-        if (data.success) {
-          showMessage(data.message || 'Posted successfully', 'success');
-        } else {
-          const friendlyError = getHumanReadableError(data.error);
-          showMessage(friendlyError, 'error');
-        }
-        appsLoadedRef.current = false;
-        loadApps();
+      const data = await postApp(appId);
+      if (data.success) {
+        showMessage(data.message || 'Posted successfully', 'success');
       } else {
-        const friendlyError = getHumanReadableError(data.error || 'Post failed');
+        const friendlyError = getHumanReadableError(data.error);
         showMessage(friendlyError, 'error');
       }
+      appsLoadedRef.current = false;
+      loadApps();
     } catch (error) {
       const friendlyError = getHumanReadableError(error.message || 'Network error occurred');
       showMessage(friendlyError, 'error');
@@ -257,20 +229,13 @@ function App() {
   const handleSaveApp = async (formData) => {
     try {
       const appId = formData.id || editingApp?.id;
-      const response = await saveAppRequest(appId, formData);
-
-      if (response.ok) {
-        showMessage(appId ? 'App updated successfully' : 'App added successfully');
-        setCurrentPage('dashboard');
-        setEditingApp(null);
-        window.history.pushState({ page: 'dashboard' }, '', '/');
-        appsLoadedRef.current = false;
-        loadApps();
-      } else {
-        const data = await response.json();
-        const friendlyError = getHumanReadableError(data.error || 'Failed to save app');
-        showMessage(friendlyError, 'error');
-      }
+      await saveAppRequest(appId, formData);
+      showMessage(appId ? 'App updated successfully' : 'App added successfully');
+      setCurrentPage('dashboard');
+      setEditingApp(null);
+      window.history.pushState({ page: 'dashboard' }, '', '/');
+      appsLoadedRef.current = false;
+      loadApps();
     } catch (error) {
       const friendlyError = getHumanReadableError(error.message || 'Network error occurred');
       showMessage(friendlyError, 'error');

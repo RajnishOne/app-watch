@@ -57,14 +57,11 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     if (!editingApp) {
       const loadDefaultSettings = async () => {
         try {
-          const response = await fetchSettings();
-          if (response.ok) {
-            const settings = await response.json();
-            setFormData(prev => ({
-              ...prev,
-              enabled: settings.monitoring_enabled_by_default !== false
-            }));
-          }
+          const settings = await fetchSettings();
+          setFormData((prev) => ({
+            ...prev,
+            enabled: settings.monitoring_enabled_by_default !== false
+          }));
         } catch (error) {
           console.error('Error loading settings:', error);
         }
@@ -91,15 +88,14 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
       const timeoutId = setTimeout(async () => {
         setFetchingMetadata(true);
         try {
-          const response = await fetchAppMetadata(appStoreId, appStoreCountry);
-          if (response.ok) {
-            const metadata = await response.json();
+          const metadata = await fetchAppMetadata(appStoreId, appStoreCountry);
+          if (metadata) {
             if (metadata.artworkUrl) {
-              setFormData(prev => ({ ...prev, icon_url: metadata.artworkUrl }));
+              setFormData((prev) => ({ ...prev, icon_url: metadata.artworkUrl }));
             }
             if (metadata.trackName) {
               setSuggestedName(metadata.trackName);
-              setFormData(prev => {
+              setFormData((prev) => {
                 if (!prev.name.trim()) {
                   return { ...prev, name: metadata.trackName };
                 }
@@ -108,7 +104,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
             }
           } else {
             setSuggestedName('');
-            setFormData(prev => ({ ...prev, icon_url: '' }));
+            setFormData((prev) => ({ ...prev, icon_url: '' }));
           }
         } catch (error) {
           setSuggestedName('');

@@ -7,6 +7,7 @@ import {
   fetchSettings,
   putSettings
 } from '../api';
+import { getHumanReadableError } from '../utils/errors';
 
 export function SettingsPage({ onCancel, message, showMessage, section = 'general', onNavigateSection, theme, onThemeChange, accent, onAccentChange }) {
   const [settings, setSettings] = useState({
@@ -52,11 +53,8 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
 
   const loadApiKey = async () => {
     try {
-      const response = await fetchAuthStatus();
-      if (response.ok) {
-        const data = await response.json();
-        setApiKey(data.api_key || '');
-      }
+      const data = await fetchAuthStatus();
+      setApiKey(data.api_key || '');
     } catch (error) {
       console.error('Error loading API key:', error);
     }
@@ -67,18 +65,11 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
 
     try {
       setRegeneratingApiKey(true);
-      const response = await regenerateApiKeyRequest();
-
-      if (response.ok) {
-        const data = await response.json();
-        setApiKey(data.api_key);
-        showMessage('API key regenerated successfully', 'success');
-      } else {
-        const errorData = await response.json();
-        showMessage(errorData.error || 'Failed to regenerate API key', 'error');
-      }
+      const data = await regenerateApiKeyRequest();
+      setApiKey(data.api_key);
+      showMessage('API key regenerated successfully', 'success');
     } catch (error) {
-      showMessage('Error regenerating API key: ' + error.message, 'error');
+      showMessage(getHumanReadableError(error.message || 'Failed to regenerate API key'), 'error');
     } finally {
       setRegeneratingApiKey(false);
     }
@@ -87,15 +78,10 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetchSettings();
-      if (response.ok) {
-        const data = await response.json();
-        setSettings(data);
-      } else {
-        showMessage('Failed to load settings', 'error');
-      }
+      const data = await fetchSettings();
+      setSettings(data);
     } catch (error) {
-      showMessage('Error loading settings: ' + error.message, 'error');
+      showMessage(getHumanReadableError(error.message || 'Failed to load settings'), 'error');
     } finally {
       setLoading(false);
     }
@@ -126,16 +112,10 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
     try {
       setSaving(true);
       const { version, ...settingsToSave } = settings;
-      const response = await putSettings(settingsToSave);
-
-      if (response.ok) {
-        showMessage('Settings saved successfully');
-      } else {
-        const data = await response.json();
-        showMessage(data.error || 'Failed to save settings', 'error');
-      }
+      await putSettings(settingsToSave);
+      showMessage('Settings saved successfully');
     } catch (error) {
-      showMessage('Error saving settings: ' + error.message, 'error');
+      showMessage(getHumanReadableError(error.message || 'Failed to save settings'), 'error');
     } finally {
       setSaving(false);
     }

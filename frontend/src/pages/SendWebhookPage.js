@@ -19,13 +19,8 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
   const loadWebhooks = async () => {
     setLoading(true);
     try {
-      const response = await fetchWebhooksList();
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableWebhooks(data.webhooks || []);
-      } else {
-        showMessage('Failed to load webhooks', 'error');
-      }
+      const data = await fetchWebhooksList();
+      setAvailableWebhooks(data.webhooks || []);
     } catch (error) {
       showMessage('Error loading webhooks', 'error');
     } finally {
@@ -102,14 +97,12 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
         return;
       }
 
-      const response = await sendWebhooksRequest({
+      const data = await sendWebhooksRequest({
         message: customMessage.trim(),
         webhook_urls: webhookUrls
       });
 
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
+      if (data.success) {
         showMessage(data.message || 'Message sent successfully', 'success');
         setCustomMessage('');
         setSelectedWebhooks([]);
