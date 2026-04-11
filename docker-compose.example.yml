@@ -1,5 +1,6 @@
-# Default: persist data next to this file (./data). Matches README and docker-compose.example.yml.
-# For a machine-specific path, add docker-compose.override.yml (see README); Compose merges it automatically.
+# App Watch — minimal Compose sample (same as the tracked docker-compose.yml).
+# Copy to docker-compose.yml or use as a reference; data is stored in ./data on the host.
+# For a fixed host path (e.g. /docker-data/...), use docker-compose.override.yml — see README.
 
 services:
   app-watch:

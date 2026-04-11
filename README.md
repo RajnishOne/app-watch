@@ -21,7 +21,13 @@ If you don't have Docker installed, download it from [docker.com](https://www.do
 
 ### Step 2: Create the Configuration File
 
-Create a file named `docker-compose.yml` in a folder on your computer. Copy and paste this content:
+Create a file named `docker-compose.yml` in a folder on your computer. If you cloned this repository, you can copy the included sample:
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+```
+
+Or copy and paste this content (it matches `docker-compose.example.yml` and the repo’s `docker-compose.yml`):
 
 ```yaml
 services:
@@ -33,9 +39,27 @@ services:
       - "8192:8192"
     volumes:
       - ./data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8192/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 ```
 
 **Note:** The `./data` folder will be created automatically to store your app settings and version tracking data.
+
+**Custom data directory (e.g. `/docker-data/...`):** Docker Compose automatically merges `docker-compose.override.yml` if it sits next to `docker-compose.yml`. Keep the repo sample on `./data`, and add an override only on servers where you want a fixed path:
+
+```yaml
+# docker-compose.override.yml (do not commit; listed in .gitignore)
+services:
+  app-watch:
+    volumes:
+      - /docker-data/app-watch/data:/data
+```
+
+Then run `docker compose up -d` as usual; the override replaces the `volumes` entry for that service.
 
 ### Step 3: Start the Application
 
@@ -284,7 +308,7 @@ docker compose up -d
 
 ### Data Storage
 
-All your app configurations and version tracking data are stored in the `data` folder in the same directory as your `docker-compose.yml` file:
+With the default Compose sample (`docker-compose.yml` / `docker-compose.example.yml`), configurations and version tracking live in a `data` folder next to your compose file:
 
 - `data/apps.json` - App configurations (names, IDs, notification destinations, intervals)
 - `data/settings.json` - Global settings (default interval, Telegram bot token, SMTP settings)
@@ -314,11 +338,11 @@ services:
       # - "8192:8192/tcp"                      # Specify protocol
       # - "127.0.0.1:8192:8192"               # Bind to specific host IP
     
-    # Volume mounts
+    # Volume mounts (default: ./data — see docker-compose.example.yml)
     volumes:
-      - ./data:/data                           # Local path:container path
-      # Alternative formats:
-      # - /docker-data/app-watch/data:/data    # Absolute path
+      - ./data:/data                           # Local path next to compose file
+      # Other hosts: use docker-compose.override.yml with an absolute path or named volume
+      # - /docker-data/app-watch/data:/data
       # - app-watch-data:/data                 # Named volume (requires volumes: section)
     
     # Environment variables
@@ -441,7 +465,7 @@ services:
 
 #### Volume Mount Options
 
-- **Bind mount**: `./data:/data` or `/absolute/path:/data` - Maps a host directory to container directory
+- **Bind mount**: `./data:/data` (default in `docker-compose.example.yml`) or an absolute path — for a different path on one host, prefer `docker-compose.override.yml` over editing the shared compose file
 - **Named volume**: `app-watch-data:/data` - Uses Docker-managed volume (requires `volumes:` section)
 - **Read-only mount**: `./data:/data:ro` - Mount as read-only
 

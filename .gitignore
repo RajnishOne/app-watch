@@ -37,4 +37,5 @@ data/
 
 # Docker
 .env.local
+docker-compose.override.yml
 
