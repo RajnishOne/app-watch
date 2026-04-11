@@ -4,7 +4,6 @@ Storage management for app data and version tracking
 import json
 import logging
 import hashlib
-import base64
 import secrets
 from pathlib import Path
 from datetime import datetime
@@ -27,6 +26,7 @@ class StorageManager:
         self._ensure_apps_file()
         self._ensure_settings_file()
         self._ensure_auth_file()
+        self._strip_user_authentication()
         self._ensure_history_file()
     
     def _ensure_apps_file(self):
@@ -69,7 +69,17 @@ class StorageManager:
                 'api_key': self._generate_api_key()
             }
             self._save_auth(default_auth)
-    
+
+    def _strip_user_authentication(self):
+        """Remove stored login credentials and disable password prompts."""
+        auth = self.get_auth()
+        if auth.get('enabled') or auth.get('username') or auth.get('password_hash'):
+            auth['enabled'] = False
+            auth['username'] = ''
+            auth['password_hash'] = ''
+            self._save_auth(auth)
+            logger.info('User authentication disabled; login credentials cleared from storage.')
+
     def _ensure_history_file(self):
         """Ensure history.json exists"""
         if not self.history_file.exists():

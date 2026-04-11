@@ -7,16 +7,6 @@ const API_BASE = window.location.origin;
 // Favicon path - use this constant so favicon can be changed in one place
 const FAVICON_PATH = '/icon-192.png';
 
-// Helper function to get auth headers
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
-  const headers = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
-
 // Helper function to convert technical error messages to human-readable ones
 const getHumanReadableError = (errorMessage) => {
   if (!errorMessage) return 'An unknown error occurred';
@@ -141,13 +131,6 @@ const Icons = {
       <circle cx="12" cy="12" r="3"/>
     </svg>
   ),
-  Logout: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-      <polyline points="16 17 21 12 16 7"/>
-      <line x1="21" y1="12" x2="9" y2="12"/>
-    </svg>
-  ),
   Menu: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="3" y1="12" x2="21" y2="12"/>
@@ -231,7 +214,7 @@ const Icons = {
 };
 
 // Sidebar Component
-function Sidebar({ currentPage, onNavigate, onLogout, authStatus, appsCount, sidebarOpen, onCloseSidebar }) {
+function Sidebar({ currentPage, onNavigate, appsCount, sidebarOpen, onCloseSidebar }) {
   const navItems = [
     { id: 'dashboard', label: 'Apps', icon: Icons.Apps, badge: appsCount },
     { id: 'add-app', label: 'Add App', icon: Icons.Add },
@@ -278,28 +261,13 @@ function Sidebar({ currentPage, onNavigate, onLogout, authStatus, appsCount, sid
             ))}
           </div>
         </nav>
-
-        {authStatus && authStatus.enabled && (
-          <div className="sidebar-footer">
-            <div className="sidebar-user">
-              <div className="sidebar-user-avatar">U</div>
-              <div className="sidebar-user-info">
-                <div className="sidebar-user-name">Admin</div>
-                <div className="sidebar-user-role">Authenticated</div>
-              </div>
-              <button className="logout-btn" onClick={onLogout} title="Logout">
-                <Icons.Logout />
-              </button>
-            </div>
-          </div>
-        )}
       </aside>
     </>
   );
 }
 
 // Main Layout Component
-function AppLayout({ children, currentPage, onNavigate, onLogout, authStatus, appsCount }) {
+function AppLayout({ children, currentPage, onNavigate, appsCount }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -311,8 +279,6 @@ function AppLayout({ children, currentPage, onNavigate, onLogout, authStatus, ap
       <Sidebar
         currentPage={currentPage}
         onNavigate={onNavigate}
-        onLogout={onLogout}
-        authStatus={authStatus}
         appsCount={appsCount}
         sidebarOpen={sidebarOpen}
         onCloseSidebar={() => setSidebarOpen(false)}
@@ -333,12 +299,6 @@ function App() {
   const [message, setMessage] = useState(null);
   const [checking, setChecking] = useState({});
   const [posting, setPosting] = useState({});
-  
-  // Authentication state
-  const [authStatus, setAuthStatus] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authToken, setAuthToken] = useState(() => localStorage.getItem('auth_token') || null);
   
   // Ref to track if apps have been loaded to prevent duplicate calls
   const appsLoadedRef = useRef(false);
@@ -365,140 +325,11 @@ function App() {
     localStorage.setItem('app_accent', accent);
   }, [accent]);
 
-  // Check authentication status on mount
   useEffect(() => {
-    checkAuthStatus();
+    localStorage.removeItem('auth_token');
   }, []);
 
-  const checkAuthStatus = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/auth/status`);
-      if (response.ok) {
-        const data = await response.json();
-        setAuthStatus(data);
-        
-        if (!data.configured) {
-          setAuthLoading(false);
-          return;
-        }
-        
-        if (data.enabled) {
-          const token = localStorage.getItem('auth_token');
-          if (token) {
-            setIsAuthenticated(true);
-            setAuthToken(token);
-            setAuthLoading(false);
-            verifyAuth(token).catch(() => {});
-          } else {
-            setAuthLoading(false);
-          }
-        } else {
-          setIsAuthenticated(true);
-          setAuthLoading(false);
-          loadApps();
-        }
-      } else {
-        setAuthLoading(false);
-      }
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-      setAuthLoading(false);
-    }
-  };
-
-  const verifyAuth = async (token = null) => {
-    const tokenToVerify = token || authToken || localStorage.getItem('auth_token');
-    if (!tokenToVerify) {
-      setIsAuthenticated(false);
-      setAuthLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/api/status`, {
-        headers: { 'Authorization': `Bearer ${tokenToVerify}` }
-      });
-      
-      if (response.ok) {
-        setIsAuthenticated(true);
-        setAuthToken(tokenToVerify);
-        if (authLoading) {
-          setAuthLoading(false);
-        }
-      } else if (response.status === 401) {
-        localStorage.removeItem('auth_token');
-        setAuthToken(null);
-        setIsAuthenticated(false);
-        setAuthLoading(false);
-      }
-    } catch (error) {
-      console.error('Error verifying auth:', error);
-    }
-  };
-
-  const handleLogin = async (username, password) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('auth_token', data.token);
-        setAuthToken(data.token);
-        setIsAuthenticated(true);
-        setAuthLoading(false);
-        appsLoadedRef.current = false;
-        return { success: true };
-      } else {
-        const errorData = await response.json();
-        return { success: false, error: errorData.error || 'Login failed' };
-      }
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    setAuthToken(null);
-    setIsAuthenticated(false);
-  };
-
-  const handleAuthSetup = async (authData) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/auth/setup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(authData)
-      });
-
-      if (response.ok) {
-        const loginResult = await handleLogin(authData.username, authData.password);
-        if (loginResult.success) {
-          await checkAuthStatus();
-          return { success: true };
-        } else {
-          return { success: false, error: 'Setup successful but login failed' };
-        }
-      } else {
-        const errorData = await response.json();
-        return { success: false, error: errorData.error || 'Setup failed' };
-      }
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
-
   useEffect(() => {
-    if (authLoading) return;
-    
-    if (isAuthenticated && !appsLoadedRef.current && !loadingAppsRef.current) {
-      loadApps();
-    }
-    
     const checkRoute = () => {
       const path = window.location.pathname;
       if (path === '/add-app' || path.includes('/add-app')) {
@@ -508,7 +339,7 @@ function App() {
         setCurrentPage('edit-app');
         const appId = path.split('/edit-app/')[1];
         if (appId && !editingApp) {
-          fetch(`${API_BASE}/api/apps`, { headers: getAuthHeaders() })
+          fetch(`${API_BASE}/api/apps`)
             .then(response => response.json())
             .then(apps => {
               const app = apps.find(a => a.id === appId);
@@ -552,7 +383,7 @@ function App() {
     const handlePopState = () => checkRoute();
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isAuthenticated, authLoading, editingApp]);
+  }, [editingApp]);
 
   const loadApps = async () => {
     if (loadingAppsRef.current) return;
@@ -560,23 +391,11 @@ function App() {
     try {
       loadingAppsRef.current = true;
       setLoading(true);
-      const token = authToken || localStorage.getItem('auth_token');
-      const headers = getAuthHeaders();
-      
-      const response = await fetch(`${API_BASE}/api/apps`, { headers });
+      const response = await fetch(`${API_BASE}/api/apps`);
       if (response.ok) {
         const data = await response.json();
         setApps(data);
         appsLoadedRef.current = true;
-        if (!isAuthenticated && token) {
-          setIsAuthenticated(true);
-        }
-      } else if (response.status === 401) {
-        localStorage.removeItem('auth_token');
-        setAuthToken(null);
-        setIsAuthenticated(false);
-        appsLoadedRef.current = false;
-        setAuthStatus(prev => prev ? { ...prev, enabled: true } : null);
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Failed to load apps' }));
         const friendlyError = getHumanReadableError(errorData.error || 'Failed to load apps');
@@ -590,6 +409,10 @@ function App() {
       loadingAppsRef.current = false;
     }
   };
+
+  useEffect(() => {
+    loadApps();
+  }, []);
 
   const showMessage = (text, type = 'success') => {
     setMessage({ text, type });
@@ -634,10 +457,8 @@ function App() {
     if (!window.confirm('Are you sure you want to delete this app?')) return;
 
     try {
-      const headers = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
       const response = await fetch(`${API_BASE}/api/apps/${appId}`, {
-        method: 'DELETE',
-        headers
+        method: 'DELETE'
       });
 
       if (response.ok) {
@@ -658,10 +479,8 @@ function App() {
   const handleCheckApp = async (appId) => {
     setChecking({ ...checking, [appId]: true });
     try {
-      const headers = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
       const response = await fetch(`${API_BASE}/api/apps/${appId}/check`, {
-        method: 'POST',
-        headers
+        method: 'POST'
       });
 
       const data = await response.json();
@@ -689,10 +508,8 @@ function App() {
   const handlePostApp = async (appId) => {
     setPosting({ ...posting, [appId]: true });
     try {
-      const headers = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
       const response = await fetch(`${API_BASE}/api/apps/${appId}/post`, {
-        method: 'POST',
-        headers
+        method: 'POST'
       });
 
       const data = await response.json();
@@ -723,14 +540,9 @@ function App() {
       const url = appId ? `${API_BASE}/api/apps/${appId}` : `${API_BASE}/api/apps`;
       const method = appId ? 'PUT' : 'POST';
 
-      const headers = {
-        'Content-Type': 'application/json',
-        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-      };
-
       const response = await fetch(url, {
         method,
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
 
@@ -752,46 +564,11 @@ function App() {
     }
   };
 
-  // Show loading while checking auth
-  if (authLoading && !authStatus) {
-    return (
-      <div className="auth-page">
-        <div className="loading">
-          <div className="loading-spinner"></div>
-          <span>Loading...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Show onboarding if auth is not configured
-  if (authStatus && !authStatus.configured) {
-    return <OnboardingPage onSetup={handleAuthSetup} message={message} showMessage={showMessage} />;
-  }
-
-  // Show login if auth is enabled but user is not authenticated
-  if (authStatus && authStatus.enabled && !isAuthenticated && !authLoading) {
-    const hasToken = localStorage.getItem('auth_token');
-    if (hasToken) {
-      return (
-        <div className="auth-page">
-          <div className="loading">
-            <div className="loading-spinner"></div>
-            <span>Verifying authentication...</span>
-          </div>
-        </div>
-      );
-    }
-    return <LoginPage onLogin={handleLogin} authType={authStatus.auth_type} message={message} showMessage={showMessage} />;
-  }
-
   if (loading) {
     return (
       <AppLayout
         currentPage={currentPage}
         onNavigate={handleNavigate}
-        onLogout={handleLogout}
-        authStatus={authStatus}
         appsCount={0}
       >
         <div className="page-content">
@@ -888,8 +665,6 @@ function App() {
     <AppLayout
       currentPage={currentPage}
       onNavigate={handleNavigate}
-      onLogout={handleLogout}
-      authStatus={authStatus}
       appsCount={apps.length}
     >
       {renderContent()}
@@ -958,8 +733,7 @@ function AppCard({ app, onEdit, onDelete, onCheck, onPost, checking, posting }) 
     setLoadingPreview(true);
     try {
       const response = await fetch(`${API_BASE}/api/apps/${app.id}/check`, {
-        method: 'POST',
-        headers: getAuthHeaders()
+        method: 'POST'
       });
       const data = await response.json();
       if (data.formatted_preview) {
@@ -1145,7 +919,7 @@ function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
     if (!editingApp) {
       const loadDefaultSettings = async () => {
         try {
-          const response = await fetch(`${API_BASE}/api/settings`, { headers: getAuthHeaders() });
+          const response = await fetch(`${API_BASE}/api/settings`);
           if (response.ok) {
             const settings = await response.json();
             setFormData(prev => ({
@@ -1172,7 +946,7 @@ function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
       const timeoutId = setTimeout(async () => {
         setFetchingMetadata(true);
         try {
-          const response = await fetch(`${API_BASE}/api/apps/metadata/${appStoreId}`, { headers: getAuthHeaders() });
+          const response = await fetch(`${API_BASE}/api/apps/metadata/${appStoreId}`);
           if (response.ok) {
             const metadata = await response.json();
             if (metadata.artworkUrl) {
@@ -1687,7 +1461,7 @@ function SettingsPage({ onCancel, message, showMessage, section = 'general', onN
 
   const loadApiKey = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/status`, { headers: getAuthHeaders() });
+      const response = await fetch(`${API_BASE}/api/auth/status`);
       if (response.ok) {
         const data = await response.json();
         setApiKey(data.api_key || '');
@@ -1704,7 +1478,7 @@ function SettingsPage({ onCancel, message, showMessage, section = 'general', onN
       setRegeneratingApiKey(true);
       const response = await fetch(`${API_BASE}/api/auth/api-key/regenerate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (response.ok) {
@@ -1725,7 +1499,7 @@ function SettingsPage({ onCancel, message, showMessage, section = 'general', onN
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/api/settings`, { headers: getAuthHeaders() });
+      const response = await fetch(`${API_BASE}/api/settings`);
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
@@ -1766,7 +1540,7 @@ function SettingsPage({ onCancel, message, showMessage, section = 'general', onN
       const { version, ...settingsToSave } = settings;
       const response = await fetch(`${API_BASE}/api/settings`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settingsToSave)
       });
 
@@ -2062,7 +1836,7 @@ function SettingsPage({ onCancel, message, showMessage, section = 'general', onN
           <div className="settings-section">
             <div className="settings-section-header">
               <h3 className="settings-section-title">Security Settings</h3>
-              <p className="settings-section-description">Manage API access and authentication</p>
+              <p className="settings-section-description">Manage API access for integrations</p>
             </div>
             <div className="settings-section-body">
                 <div className="form-group">
@@ -2242,7 +2016,7 @@ function ActivityPage({ onCancel, apps, message, showMessage }) {
       if (filterParams.app_id || filters.app_id) params.append('app_id', filterParams.app_id || filters.app_id);
       if (filterParams.status || filters.status) params.append('status', filterParams.status || filters.status);
 
-      const response = await fetch(`${API_BASE}/api/history?${params.toString()}`, { headers: getAuthHeaders() });
+      const response = await fetch(`${API_BASE}/api/history?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setHistory(data.history || []);
@@ -2452,7 +2226,7 @@ function SchedulerPage({ onCancel, apps, message, showMessage }) {
       if (filterParams.app_id || filters.app_id) params.append('app_id', filterParams.app_id || filters.app_id);
       if (filterParams.status || filters.status) params.append('status', filterParams.status || filters.status);
 
-      const response = await fetch(`${API_BASE}/api/history?${params.toString()}`, { headers: getAuthHeaders() });
+      const response = await fetch(`${API_BASE}/api/history?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setHistory(data.history || []);
@@ -2619,7 +2393,7 @@ function SendWebhookPage({ onCancel, message, showMessage }) {
   const loadWebhooks = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/webhooks/list`, { headers: getAuthHeaders() });
+      const response = await fetch(`${API_BASE}/api/webhooks/list`);
       if (response.ok) {
         const data = await response.json();
         setAvailableWebhooks(data.webhooks || []);
@@ -2705,8 +2479,7 @@ function SendWebhookPage({ onCancel, message, showMessage }) {
       const response = await fetch(`${API_BASE}/api/webhooks/send`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders()
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           message: customMessage.trim(),
@@ -2916,244 +2689,6 @@ function SendWebhookPage({ onCancel, message, showMessage }) {
         </div>
       </div>
     </>
-  );
-}
-
-function OnboardingPage({ onSetup, message, showMessage }) {
-  const [formData, setFormData] = useState({
-    auth_type: 'forms',
-    username: '',
-    password: '',
-    confirm_password: '',
-    bypass_local_networks: false
-  });
-  const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    if (errors[name]) {
-      setErrors(prev => { const newErrors = { ...prev }; delete newErrors[name]; return newErrors; });
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.username.trim()) newErrors.username = 'Username is required';
-    if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 3) newErrors.password = 'Password must be at least 3 characters';
-    if (!formData.confirm_password) newErrors.confirm_password = 'Please confirm your password';
-    else if (formData.password !== formData.confirm_password) newErrors.confirm_password = 'Passwords do not match';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) {
-      showMessage('Please fix the errors before continuing', 'error');
-      return;
-    }
-    setSubmitting(true);
-    const result = await onSetup(formData);
-    setSubmitting(false);
-    if (!result.success) {
-      showMessage(result.error || 'Setup failed', 'error');
-    }
-  };
-
-  return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-card">
-          <div className="auth-header">
-            <img src={FAVICON_PATH} alt="App Watch" className="auth-logo" />
-            <h1 className="auth-title">Welcome to App Watch</h1>
-            <p className="auth-subtitle">Let's set up authentication to secure your application</p>
-          </div>
-
-          {message && (
-            <div className={`alert alert-${message.type}`}>
-              {message.text}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="auth-form">
-            <div className="form-group">
-              <label className="form-label">Authentication Type</label>
-              <select
-                name="auth_type"
-                value={formData.auth_type}
-                onChange={handleChange}
-                className="form-select"
-              >
-                <option value="forms">Forms (Login Page)</option>
-                <option value="basic">Basic (Browser Popup)</option>
-              </select>
-              <span className="form-hint">
-                {formData.auth_type === 'forms' 
-                  ? 'Users will see a login page when accessing the application.'
-                  : 'Users will see a browser authentication popup.'}
-              </span>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Username <span className="required">*</span></label>
-              <input
-                type="text"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                placeholder="Enter your username"
-                className={`form-input ${errors.username ? 'error' : ''}`}
-              />
-              {errors.username && <span className="form-error">{errors.username}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Password <span className="required">*</span></label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Enter your password"
-                className={`form-input ${errors.password ? 'error' : ''}`}
-              />
-              <span className="form-hint">Password must be at least 3 characters</span>
-              {errors.password && <span className="form-error">{errors.password}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Confirm Password <span className="required">*</span></label>
-              <input
-                type="password"
-                name="confirm_password"
-                value={formData.confirm_password}
-                onChange={handleChange}
-                placeholder="Confirm your password"
-                className={`form-input ${errors.confirm_password ? 'error' : ''}`}
-              />
-              {errors.confirm_password && <span className="form-error">{errors.confirm_password}</span>}
-            </div>
-
-            <div className="form-group">
-              <div className="form-checkbox-group">
-                <input
-                  type="checkbox"
-                  id="bypass_local_networks"
-                  name="bypass_local_networks"
-                  checked={formData.bypass_local_networks}
-                  onChange={handleChange}
-                  className="form-checkbox"
-                />
-                <label htmlFor="bypass_local_networks" className="form-checkbox-label">
-                  Bypass authentication for local networks
-                </label>
-              </div>
-              <span className="form-hint">Skip auth for users on local/private networks</span>
-            </div>
-
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary btn-lg" disabled={submitting}>
-                {submitting ? 'Setting up...' : 'Complete Setup'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LoginPage({ onLogin, authType, message, showMessage }) {
-  const [formData, setFormData] = useState({ username: '', password: '' });
-  const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => { const newErrors = { ...prev }; delete newErrors[name]; return newErrors; });
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.username.trim() || !formData.password) {
-      setErrors({
-        username: !formData.username.trim() ? 'Username is required' : '',
-        password: !formData.password ? 'Password is required' : ''
-      });
-      return;
-    }
-
-    setSubmitting(true);
-    const result = await onLogin(formData.username, formData.password);
-    setSubmitting(false);
-
-    if (!result.success) {
-      showMessage(result.error || 'Login failed', 'error');
-      setErrors({ password: result.error || 'Invalid credentials' });
-    }
-  };
-
-  return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-card">
-          <div className="auth-header">
-            <img src={FAVICON_PATH} alt="App Watch" className="auth-logo" />
-            <h1 className="auth-title">App Watch</h1>
-            <p className="auth-subtitle">Please sign in to continue</p>
-          </div>
-
-          {message && (
-            <div className={`alert alert-${message.type}`}>
-              {message.text}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="auth-form">
-            <div className="form-group">
-              <label className="form-label">Username</label>
-              <input
-                type="text"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                placeholder="Enter your username"
-                className={`form-input ${errors.username ? 'error' : ''}`}
-                autoFocus
-              />
-              {errors.username && <span className="form-error">{errors.username}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Enter your password"
-                className={`form-input ${errors.password ? 'error' : ''}`}
-              />
-              {errors.password && <span className="form-error">{errors.password}</span>}
-            </div>
-
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary btn-lg" disabled={submitting}>
-                {submitting ? 'Signing in...' : 'Sign In'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -422,94 +422,15 @@ def setup_scheduler():
 # Authentication endpoints (public)
 @app.route('/api/auth/status', methods=['GET'])
 def auth_status():
-    """Get authentication status"""
+    """Return API key for settings; user login is not used."""
     auth = storage.get_auth()
-    is_configured = storage.is_auth_configured()
     return jsonify({
-        'enabled': auth.get('enabled', False),
-        'configured': is_configured,
+        'enabled': False,
+        'configured': True,
         'auth_type': auth.get('auth_type', 'forms'),
-        'bypass_local_networks': auth.get('bypass_local_networks', False),
-        'api_key': auth.get('api_key', '')  # Include API key for authenticated users
+        'bypass_local_networks': False,
+        'api_key': auth.get('api_key', ''),
     })
-
-
-@app.route('/api/auth/setup', methods=['POST'])
-def auth_setup():
-    """Setup authentication (first time setup)"""
-    if not request.json:
-        return jsonify({'error': 'Request body must be JSON'}), 400
-    
-    data = request.json
-    
-    # Check if auth is already configured
-    if storage.is_auth_configured():
-        return jsonify({'error': 'Authentication is already configured'}), 400
-    
-    # Validate required fields
-    auth_type = data.get('auth_type', 'forms')
-    if auth_type not in ['basic', 'forms']:
-        return jsonify({'error': 'Invalid auth_type. Must be "basic" or "forms"'}), 400
-    
-    username = data.get('username', '').strip()
-    password = data.get('password', '').strip()
-    confirm_password = data.get('confirm_password', '').strip()
-    
-    if not username:
-        return jsonify({'error': 'Username is required'}), 400
-    if not password:
-        return jsonify({'error': 'Password is required'}), 400
-    if password != confirm_password:
-        return jsonify({'error': 'Passwords do not match'}), 400
-    if len(password) < 3:
-        return jsonify({'error': 'Password must be at least 3 characters'}), 400
-    
-    # Save authentication
-    auth_data = {
-        'enabled': True,
-        'auth_type': auth_type,
-        'username': username,
-        'password': password,  # Will be hashed in save_auth
-        'bypass_local_networks': data.get('bypass_local_networks', False)
-    }
-    
-    try:
-        storage.save_auth(auth_data)
-        return jsonify({'message': 'Authentication configured successfully'}), 200
-    except Exception as e:
-        logger.error(f"Error setting up auth: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to configure authentication'}), 500
-
-
-@app.route('/api/auth/login', methods=['POST'])
-def auth_login():
-    """Login endpoint for Forms authentication"""
-    if not request.json:
-        return jsonify({'error': 'Request body must be JSON'}), 400
-    
-    data = request.json
-    username = data.get('username', '').strip()
-    password = data.get('password', '').strip()
-    
-    if not username or not password:
-        return jsonify({'error': 'Username and password are required'}), 400
-    
-    auth = storage.get_auth()
-    
-    # Verify credentials
-    if username != auth.get('username') or not storage.verify_password(password):
-        return jsonify({'error': 'Invalid username or password'}), 401
-    
-    # Generate a simple token (in production, use proper JWT or session management)
-    import base64
-    password_hash = auth.get('password_hash', '')
-    token = base64.b64encode(f"{username}:{password_hash}".encode('utf-8')).decode('utf-8')
-    
-    return jsonify({
-        'token': token,
-        'auth_type': auth.get('auth_type', 'forms'),
-        'api_key': auth.get('api_key', '')  # Include API key in login response
-    }), 200
 
 
 @app.route('/api/auth/api-key/regenerate', methods=['POST'])
