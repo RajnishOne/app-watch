@@ -123,6 +123,18 @@ Before adding apps, you need to configure at least one notification destination.
 
 You can add more apps by clicking **"Add App"** again. Each app can use different notification destinations and channels.
 
+## Security and network exposure
+
+**Web interface:** App Watch does **not** provide login, passwords, or other built-in access control for the UI. Anyone who can open the server URL in a browser can use the application (manage apps, change settings, send notifications, and so on).
+
+**If you expose the app beyond your own machine** (LAN, VPS, port forwarding, cloud host, etc.), you are responsible for restricting who can reach it. Common approaches:
+
+- **Reverse proxy with TLS**: Place [Caddy](https://caddyserver.com/), [nginx](https://nginx.org/), [Traefik](https://traefik.io/), or another reverse proxy in front of the container, terminate HTTPS at the proxy, and apply any access rules or authentication the proxy supports.
+- **Private network access**: Use [Tailscale](https://tailscale.com/), [WireGuard](https://www.wireguard.com/), another VPN, or SSH port forwarding so the UI is only reachable from trusted devices, not from the public internet.
+- **Firewall and binding**: Restrict inbound traffic with host or cloud firewall rules so only trusted networks or IPs can reach the app port. You can also bind the published port to localhost only (for example `127.0.0.1:8192:8192` in Docker Compose) and access the UI via SSH tunnel or VPN.
+
+**API key (Settings → Security):** The UI shows an API key for scripts and integrations (for example `X-Api-Key` or `Authorization: Bearer`). **The application does not currently require this key to call the REST API**—if someone can reach your instance over the network, they can use the API without it—so **network-level protection** (above) is what actually restricts access. You should still **treat the API key as a secret**: do not commit it to repositories, paste it into public issues, or share it unnecessarily, and use **Regenerate** if it may have leaked, so automation and any future hardening remain trustworthy.
+
 ## How It Works
 
 The application periodically checks the App Store API for new versions of your configured apps. When a new version is detected, it automatically formats the release notes and sends notifications to all configured destinations (Discord, Slack, Telegram, Teams, Email, or custom webhooks).
@@ -599,7 +611,7 @@ Configure reusable settings in the Settings page:
 
 ## API Endpoints
 
-The application provides a REST API for programmatic access:
+The application provides a REST API for programmatic access. Integrations can send the API key from **Settings → Security** as `X-Api-Key: <your-key>` or `Authorization: Bearer <your-key>` where supported. **The server does not enforce authentication on these endpoints today**—whoever can reach the service can call the API—so rely on [network exposure controls](#security-and-network-exposure) for real protection, and still keep the API key private.
 
 - `GET /api/apps` - List all configured apps
 - `POST /api/apps` - Create a new app configuration
