@@ -42,6 +42,16 @@ class DiscordFormatter:
                     
         self.section_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in headers]
     
+    def _get_version_header(self, version):
+        """Get formatted version header, handling 'Varies with device' fallback without prepended 'v'"""
+        if not self.include_version_header:
+            return ""
+        version_str = str(version).strip()
+        if version_str.lower() == 'varies with device':
+            template = self.version_header_template.replace('v{version}', '{version}')
+            return template.format(version=version_str)
+        return self.version_header_template.format(version=version_str)
+
     def format_release_notes(self, version, release_notes):
         """
         Format release notes for Discord.
@@ -51,7 +61,7 @@ class DiscordFormatter:
         - Case B: Structured sections
         """
         if not release_notes:
-            version_header = self.version_header_template.format(version=version) if self.include_version_header else ""
+            version_header = self._get_version_header(version)
             if version_header:
                 return f"{version_header}\n\n{self.no_release_notes_text}"
             return self.no_release_notes_text
@@ -149,8 +159,8 @@ class DiscordFormatter:
         parts = []
         
         # Add version header if enabled
-        if self.include_version_header:
-            version_header = self.version_header_template.format(version=version)
+        version_header = self._get_version_header(version)
+        if version_header:
             parts.append(version_header)
             parts.append("")
         
@@ -188,8 +198,8 @@ class DiscordFormatter:
         parts = []
         
         # Add version header if enabled
-        if self.include_version_header:
-            version_header = self.version_header_template.format(version=version)
+        version_header = self._get_version_header(version)
+        if version_header:
             parts.append(version_header)
             parts.append("")
         

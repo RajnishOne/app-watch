@@ -138,3 +138,13 @@ Fix
     assert "## New" in formatted_raw
     assert "## Improvement" in formatted_raw
     assert "## Fix" in formatted_raw
+
+
+def test_formatter_varies_with_device():
+    release_notes = "New\n- Element A"
+    formatter = DiscordFormatter()
+    formatted = formatter.format_release_notes("Varies with device", release_notes)
+    
+    assert "# Varies with device" in formatted
+    assert "# vVaries with device" not in formatted
+
