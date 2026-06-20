@@ -2,8 +2,10 @@
 App Store API integration
 """
 import contextlib
+import html
 import logging
 import os
+import re
 import requests
 import time
 from datetime import datetime
@@ -162,14 +164,60 @@ class AppStoreMonitor:
                 if not result:
                     return None
                 
+                version = result.get('version')
+                recent_changes = result.get('recentChanges')
+                updated = result.get('updated')
+                
+                # If version is Varies with device, or recentChanges/updated is None,
+                # try to scrape the raw HTML details page to enrich/fallback metadata.
+                # This fixes the issue where google-play-scraper returns None/empty for recentChanges and updated.
+                if not recent_changes or not updated or version == 'Varies with device':
+                    try:
+                        url = f"https://play.google.com/store/apps/details?id={package_id}&hl=en&gl={country_code}"
+                        resp = self.session.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'en'})
+                        if resp.status_code == 200:
+                            html_text = resp.text
+                            
+                            # Extract release notes (recent changes)
+                            if not recent_changes:
+                                rn_match = re.search(
+                                    r'What[’\']s\s+new</h2></div></div></header><div class="[^"]*"[^>]*><div itemprop="description">([\s\S]*?)</div></div>',
+                                    html_text,
+                                    re.IGNORECASE
+                                )
+                                if rn_match:
+                                    rn_html = rn_match.group(1)
+                                    rn_html = re.sub(r'<br\s*/?>', '\n', rn_html)
+                                    recent_changes = html.unescape(rn_html).strip()
+                            
+                            # Extract updated timestamp
+                            if not updated:
+                                up_match = re.search(
+                                    r'Updated on</div><div class="[^"]*">([^<]+)</div>',
+                                    html_text,
+                                    re.IGNORECASE
+                                )
+                                if up_match:
+                                    updated_str = up_match.group(1).strip()
+                                    try:
+                                        from datetime import datetime
+                                        dt = datetime.strptime(updated_str, "%b %d, %Y")
+                                        updated = int(dt.timestamp() * 1000)
+                                    except Exception:
+                                        import hashlib
+                                        # Use unique hash of the date string if parsing fails
+                                        updated = int(hashlib.md5(updated_str.encode('utf-8')).hexdigest(), 16) % (10**12)
+                    except Exception as scrape_err:
+                        logger.warning(f"Failed to scrape raw HTML fallback for Android app {package_id}: {scrape_err}")
+                
                 return {
-                    'version': result.get('version'),
-                    'releaseNotes': result.get('recentChanges', ''),
+                    'version': version,
+                    'releaseNotes': recent_changes or '',
                     'bundleId': package_id,
                     'trackName': result.get('title'),
                     'artistName': result.get('developer'),
                     'artworkUrl': result.get('icon'),
-                    'updated': result.get('updated')  # Unix timestamp in ms
+                    'updated': updated  # Unix timestamp in ms
                 }
             except Exception as e:
                 if NotFoundError and isinstance(e, NotFoundError):

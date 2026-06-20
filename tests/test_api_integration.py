@@ -243,4 +243,56 @@ def test_fetch_android_app_info_not_found(tmp_path, monkeypatch):
     assert call_count == 1  # Should only call once and not retry
 
 
+def test_fetch_android_app_info_enrichment_fallback(tmp_path, monkeypatch):
+    app_module = _load_app_module(tmp_path, monkeypatch)
+    
+    # Mock play_app to return incomplete/missing metadata
+    def mock_play_app(package_id, lang='en', country='us'):
+        return {
+            'title': 'Orbitarr',
+            'developer': 'RJNS Apps',
+            'icon': 'https://example.com/icon.png',
+            'version': 'Varies with device',
+            'recentChanges': None,
+            'updated': None
+        }
+        
+    import backend.app_store
+    monkeypatch.setattr(backend.app_store, "play_app", mock_play_app)
+    
+    # Mock requests.get inside app_store session
+    class MockResponse:
+        def __init__(self, text, status_code):
+            self.text = text
+            self.status_code = status_code
+            
+    mock_html = """
+    <html>
+      <div class="lXlx5">Updated on</div><div class="xg1aie">Jun 19, 2026</div>
+      What’s new</h2></div></div></header><div class="SfzRHd" jsslot><div itemprop="description">New<br>- Lidarr support.<br><br>Fix<br>- Crash fixes.</div></div></section>
+    </html>
+    """
+    
+    def mock_session_get(url, *args, **kwargs):
+        return MockResponse(mock_html, 200)
+        
+    monitor = app_module.monitor
+    monkeypatch.setattr(monitor.session, "get", mock_session_get)
+    
+    # Call fetch_android_app_info
+    result = monitor.fetch_android_app_info("com.bluematter.orbitarr", "us")
+    
+    assert result is not None
+    assert result['version'] == 'Varies with device'
+    assert "Lidarr support." in result['releaseNotes']
+    assert "Crash fixes." in result['releaseNotes']
+    assert result['updated'] is not None
+    # Parse back the expected timestamp
+    from datetime import datetime
+    dt = datetime.strptime("Jun 19, 2026", "%b %d, %Y")
+    expected_ms = int(dt.timestamp() * 1000)
+    assert result['updated'] == expected_ms
+
+
+
 
