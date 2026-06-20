@@ -80,7 +80,7 @@ export function getHumanReadableError(errorMessage) {
   }
 
   // If cleaned message is still very technical, provide a generic message
-  if (cleaned.length > 200 || cleaned.includes('[') && cleaned.includes(']')) {
+  if (cleaned.length > 200 || (cleaned.includes('[') && cleaned.includes(']'))) {
     return 'An error occurred while checking the app. Please try again. If the problem persists, check your network connection.';
   }
 

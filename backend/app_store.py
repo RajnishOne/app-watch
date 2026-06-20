@@ -14,8 +14,10 @@ from backend.notifier import NotificationHandler
 
 try:
     from google_play_scraper import app as play_app
+    from google_play_scraper.exceptions import NotFoundError
 except ImportError:
     play_app = None
+    NotFoundError = None
 
 try:
     import fcntl
@@ -170,6 +172,9 @@ class AppStoreMonitor:
                     'updated': result.get('updated')  # Unix timestamp in ms
                 }
             except Exception as e:
+                if NotFoundError and isinstance(e, NotFoundError):
+                    logger.warning(f"Android app {package_id} not found on Google Play Store ({country_code})")
+                    return None
                 last_exception = e
                 if attempt < self.MAX_RETRIES:
                     wait_time = self.RETRY_DELAY * (2 ** attempt)  # Exponential backoff

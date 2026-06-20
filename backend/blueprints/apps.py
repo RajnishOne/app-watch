@@ -146,8 +146,8 @@ def create_apps_blueprint(
             return jsonify({"error": "Platform must be either ios or android"}), 400
         app["platform"] = platform
 
-        if "app_store_id" in data:
-            app_store_id = str(data["app_store_id"]).strip()
+        if "app_store_id" in data or "platform" in data:
+            app_store_id = str(data.get("app_store_id", app.get("app_store_id", ""))).strip()
             if platform == "ios":
                 if not app_store_id or not app_store_id.isdigit():
                     return jsonify({"error": "App Store ID must be a number for iOS apps"}), 400

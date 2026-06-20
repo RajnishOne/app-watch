@@ -127,6 +127,35 @@ def test_android_app_endpoints_with_flask_client(tmp_path, monkeypatch):
     )
     assert invalid_create.status_code == 400
 
+    # Verify PUT request validation for platform and app_store_id updates
+    ios_app = client.post(
+        "/api/apps",
+        json={
+            "name": "iOS App",
+            "app_store_id": "12345",
+            "platform": "ios",
+            "notification_destinations": [],
+            "enabled": True,
+        },
+    )
+    assert ios_app.status_code == 201
+    ios_id = ios_app.get_json()["id"]
+
+    # Update platform of iOS app to android without changing app_store_id (valid format) -> succeeds
+    update_ok = client.put(
+        f"/api/apps/{ios_id}",
+        json={"platform": "android"},
+    )
+    assert update_ok.status_code == 200
+
+    # Update app_store_id of iOS app to invalid platform format -> fails
+    update_fail = client.put(
+        f"/api/apps/{ios_id}",
+        json={"platform": "ios", "app_store_id": "com.example.android"},
+    )
+    assert update_fail.status_code == 400
+
+
 
 def test_android_check_app_timestamp_updates(tmp_path, monkeypatch):
     app_module = _load_app_module(tmp_path, monkeypatch)
@@ -193,5 +222,25 @@ def test_android_check_app_timestamp_updates(tmp_path, monkeypatch):
     assert check_resp3.status_code == 200
     assert fetch_calls == 3
     assert "new version detected" in check_resp3.get_json()["message"].lower()
+
+
+def test_fetch_android_app_info_not_found(tmp_path, monkeypatch):
+    app_module = _load_app_module(tmp_path, monkeypatch)
+    from google_play_scraper.exceptions import NotFoundError
+    
+    call_count = 0
+    def mock_play_app(package_id, lang='en', country='us'):
+        nonlocal call_count
+        call_count += 1
+        raise NotFoundError("App not found")
+        
+    import backend.app_store
+    monkeypatch.setattr(backend.app_store, "play_app", mock_play_app)
+    
+    monitor = app_module.monitor
+    result = monitor.fetch_android_app_info("com.nonexistent.app", "us")
+    assert result is None
+    assert call_count == 1  # Should only call once and not retry
+
 
 

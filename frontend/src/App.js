@@ -29,6 +29,7 @@ function App() {
   // Ref to track if apps have been loaded to prevent duplicate calls
   const appsLoadedRef = useRef(false);
   const loadingAppsRef = useRef(false);
+  const messageTimeoutRef = useRef(null);
 
   // Theme state
   const [theme, setTheme] = useState(() => {
@@ -136,8 +137,14 @@ function App() {
   }, []);
 
   const showMessage = (text, type = 'success') => {
+    if (messageTimeoutRef.current) {
+      clearTimeout(messageTimeoutRef.current);
+    }
     setMessage({ text, type });
-    setTimeout(() => setMessage(null), 5000);
+    messageTimeoutRef.current = setTimeout(() => {
+      setMessage(null);
+      messageTimeoutRef.current = null;
+    }, 5000);
   };
 
   const handleNavigate = (page, section = null) => {
