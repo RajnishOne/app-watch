@@ -134,12 +134,6 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
 
       <div className="page-content">
         <div className="form-page">
-          {message && (
-            <div className={`alert alert-${message.type}`}>
-              {message.text}
-            </div>
-          )}
-
           <form onSubmit={handleSend}>
             <div className="card">
               <div className="card-header">

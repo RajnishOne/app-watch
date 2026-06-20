@@ -557,12 +557,6 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
           <div className="settings-content-area">
             {section === 'appearance' ? (
               <div className="form-page">
-                {message && (
-                  <div className={`alert alert-${message.type}`}>
-                    {message.text}
-                  </div>
-                )}
-
                 <div className="settings-section">
                   <div className="settings-section-header">
                     <h3 className="settings-section-title">Appearance Settings</h3>
@@ -613,12 +607,6 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
               </div>
             ) : (
               <div className="form-page">
-                {message && (
-                  <div className={`alert alert-${message.type}`}>
-                    {message.text}
-                  </div>
-                )}
-
                 <form onSubmit={handleSubmit}>
                   {renderSectionContent()}
 

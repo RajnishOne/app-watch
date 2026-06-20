@@ -19,11 +19,6 @@ export function DashboardPage({ apps, message, onAddApp, onEditApp, onDeleteApp,
       </div>
 
       <div className="page-content">
-        {message && (
-          <div className={`alert alert-${message.type}`}>
-            {message.text}
-          </div>
-        )}
 
         {apps.length === 0 ? (
           <div className="empty-state">

@@ -346,7 +346,24 @@ function App() {
       appsCount={apps.length}
     >
       {renderContent()}
+      <Toast message={message} onClose={() => setMessage(null)} />
     </AppLayout>
+  );
+}
+
+function Toast({ message, onClose }) {
+  if (!message) return null;
+  
+  const icon = message.type === 'success' ? '✅' : message.type === 'error' ? '❌' : 'ℹ️';
+  
+  return (
+    <div className="toast-container">
+      <div className={`toast-message toast-${message.type}`}>
+        <span className="toast-icon">{icon}</span>
+        <span className="toast-text">{message.text}</span>
+        <button className="toast-close" onClick={onClose}>&times;</button>
+      </div>
+    </div>
   );
 }
 

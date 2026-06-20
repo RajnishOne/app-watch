@@ -318,12 +318,6 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
 
       <div className="page-content">
         <div className="form-page">
-          {message && (
-            <div className={`alert alert-${message.type}`}>
-              {message.text}
-            </div>
-          )}
-
           <form onSubmit={handleSubmit}>
             <div className="card">
               <div className="card-header">

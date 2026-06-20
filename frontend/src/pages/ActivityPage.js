@@ -88,12 +88,6 @@ export function ActivityPage({ onCancel, apps, message, showMessage }) {
       </div>
 
       <div className="page-content">
-        {message && (
-          <div className={`alert alert-${message.type}`}>
-            {message.text}
-          </div>
-        )}
-
         <div className="filters-bar">
           <div className="filter-group">
             <label className="filter-label">Event Type</label>
