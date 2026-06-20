@@ -16,15 +16,12 @@ class DiscordFormatter:
         r'^added\s*:?\s*$',
         r'^improvements?\s*:?\s*$',
         r'^improved\s*:?\s*$',
-        r'^fixed\s*:?\s*$',
-        r'^fixes\s*:?\s*$',
+        r'^fix(es|ed)?\s*:?\s*$',
         r'^bugs?\s*:?\s*$',
         r'^changes?\s*:?\s*$',
     ]
     
     def __init__(self, settings=None):
-        # Compile regex patterns
-        self.section_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.SECTION_HEADERS]
         # Load formatting settings
         self.settings = settings or {}
         self.version_header_template = self.settings.get('message_format_version_header', '# v{version}')
@@ -33,6 +30,17 @@ class DiscordFormatter:
         self.empty_line_between_sections = self.settings.get('message_format_empty_line_between_sections', True)
         self.no_release_notes_text = self.settings.get('message_format_no_release_notes', 'No release notes available.')
         self.include_version_header = self.settings.get('message_format_include_version_header', True)
+        
+        # Compile regex patterns (including custom headers)
+        headers = list(self.SECTION_HEADERS)
+        custom_headers = self.settings.get('message_format_custom_headers', '')
+        if custom_headers:
+            for h in custom_headers.split(','):
+                h = h.strip()
+                if h:
+                    headers.append(rf'^{re.escape(h)}\s*:?\s*$')
+                    
+        self.section_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in headers]
     
     def format_release_notes(self, version, release_notes):
         """
@@ -109,21 +117,30 @@ class DiscordFormatter:
     
     def _normalize_header(self, header):
         """Normalize section header names"""
-        header_lower = header.lower().rstrip(':').strip()
+        header_clean = header.strip().rstrip(':').strip()
+        header_lower = header_clean.lower()
+        
+        normalize = self.settings.get('message_format_normalize_headers', True)
+        if not normalize:
+            return header_clean
+            
+        # Load standard mapped names from settings
+        name_new = self.settings.get('message_format_name_new', 'New')
+        name_improvements = self.settings.get('message_format_name_improvements', 'Improvements')
+        name_fixed = self.settings.get('message_format_name_fixed', 'Fixed')
+        name_changes = self.settings.get('message_format_name_changes', 'Changes')
         
         # Map variations to standard names
-        if header_lower in ['new']:
-            return 'New'
-        elif header_lower in ['added']:
-            return 'Added'
-        elif header_lower in ['improvements', 'improved']:
-            return 'Improvements'
-        elif header_lower in ['fixed', 'fixes', 'bugs', 'bug']:
-            return 'Fixed'
+        if header_lower in ['new', 'added']:
+            return name_new
+        elif header_lower in ['improvements', 'improved', 'improvement']:
+            return name_improvements
+        elif header_lower in ['fixed', 'fixes', 'fix', 'bugs', 'bug']:
+            return name_fixed
         elif header_lower in ['changes', 'change']:
-            return 'Changes'
+            return name_changes
         else:
-            return header.strip().rstrip(':')
+            return header_clean
     
     def _format_structured(self, version, sections):
         """Format structured sections (Case B)"""

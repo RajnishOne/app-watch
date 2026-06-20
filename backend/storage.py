@@ -53,7 +53,13 @@ class StorageManager:
                 'message_format_bullet': '- ',
                 'message_format_empty_line_between_sections': True,
                 'message_format_no_release_notes': 'No release notes available.',
-                'message_format_include_version_header': True
+                'message_format_include_version_header': True,
+                'message_format_normalize_headers': True,
+                'message_format_name_new': 'New',
+                'message_format_name_improvements': 'Improvements',
+                'message_format_name_fixed': 'Fixed',
+                'message_format_name_changes': 'Changes',
+                'message_format_custom_headers': ''
             }
             self._save_settings(default_settings)
     
@@ -125,7 +131,13 @@ class StorageManager:
             'message_format_bullet': '- ',
             'message_format_empty_line_between_sections': True,
             'message_format_no_release_notes': 'No release notes available.',
-            'message_format_include_version_header': True
+            'message_format_include_version_header': True,
+            'message_format_normalize_headers': True,
+            'message_format_name_new': 'New',
+            'message_format_name_improvements': 'Improvements',
+            'message_format_name_fixed': 'Fixed',
+            'message_format_name_changes': 'Changes',
+            'message_format_custom_headers': ''
         }
         # Merge defaults with loaded settings (loaded settings take precedence)
         return {**defaults, **settings}

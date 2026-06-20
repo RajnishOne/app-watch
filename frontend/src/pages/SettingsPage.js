@@ -28,7 +28,13 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
     message_format_bullet: '- ',
     message_format_empty_line_between_sections: true,
     message_format_no_release_notes: 'No release notes available.',
-    message_format_include_version_header: true
+    message_format_include_version_header: true,
+    message_format_normalize_headers: true,
+    message_format_name_new: 'New',
+    message_format_name_improvements: 'Improvements',
+    message_format_name_fixed: 'Fixed',
+    message_format_name_changes: 'Changes',
+    message_format_custom_headers: ''
   });
   const [apiKey, setApiKey] = useState('');
   const [regeneratingApiKey, setRegeneratingApiKey] = useState(false);
@@ -378,6 +384,90 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
                     </label>
                   </div>
                   <span className="form-hint">Add blank lines between different sections (New, Fixed, etc.)</span>
+                </div>
+
+                <div className="form-group">
+                  <div className="form-checkbox-group">
+                    <input
+                      type="checkbox"
+                      id="message_format_normalize_headers"
+                      name="message_format_normalize_headers"
+                      checked={settings.message_format_normalize_headers !== false}
+                      onChange={handleChange}
+                      className="form-checkbox"
+                    />
+                    <label htmlFor="message_format_normalize_headers" className="form-checkbox-label">
+                      Normalize Section Headers
+                    </label>
+                  </div>
+                  <span className="form-hint">Standardize parsed headers (e.g. map "fixes", "bug", "fix" to a standardized name)</span>
+                </div>
+
+                {settings.message_format_normalize_headers !== false && (
+                  <div className="settings-subsection" style={{ marginLeft: '20px', paddingLeft: '15px', borderLeft: '2px solid var(--border-color)', marginBottom: '20px' }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', fontWeight: 600 }}>Standardized Section Names</h4>
+                    
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label className="form-label">New / Added Section Name</label>
+                      <input
+                        type="text"
+                        name="message_format_name_new"
+                        value={settings.message_format_name_new || 'New'}
+                        onChange={handleChange}
+                        placeholder="New"
+                        className="form-input"
+                      />
+                    </div>
+                    
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label className="form-label">Improvements Section Name</label>
+                      <input
+                        type="text"
+                        name="message_format_name_improvements"
+                        value={settings.message_format_name_improvements || 'Improvements'}
+                        onChange={handleChange}
+                        placeholder="Improvements"
+                        className="form-input"
+                      />
+                    </div>
+                    
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label className="form-label">Fixed / Fixes Section Name</label>
+                      <input
+                        type="text"
+                        name="message_format_name_fixed"
+                        value={settings.message_format_name_fixed || 'Fixed'}
+                        onChange={handleChange}
+                        placeholder="Fixed"
+                        className="form-input"
+                      />
+                    </div>
+                    
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label className="form-label">Changes / Other Section Name</label>
+                      <input
+                        type="text"
+                        name="message_format_name_changes"
+                        value={settings.message_format_name_changes || 'Changes'}
+                        onChange={handleChange}
+                        placeholder="Changes"
+                        className="form-input"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">Custom Section Headings</label>
+                  <input
+                    type="text"
+                    name="message_format_custom_headers"
+                    value={settings.message_format_custom_headers || ''}
+                    onChange={handleChange}
+                    placeholder="e.g. Maintenance, Security, Performance"
+                    className="form-input"
+                  />
+                  <span className="form-hint">Comma-separated list of additional section headings to parse from release notes</span>
                 </div>
 
                 <div className="form-group">
