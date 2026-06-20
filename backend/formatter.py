@@ -33,8 +33,8 @@ class DiscordFormatter:
         
         # Compile regex patterns (including custom headers)
         headers = list(self.SECTION_HEADERS)
-        custom_headers = self.settings.get('message_format_custom_headers', '')
-        if custom_headers:
+        custom_headers = self.settings.get('message_format_custom_headers', '') or ''
+        if isinstance(custom_headers, str) and custom_headers:
             for h in custom_headers.split(','):
                 h = h.strip()
                 if h:
@@ -121,14 +121,16 @@ class DiscordFormatter:
         header_lower = header_clean.lower()
         
         normalize = self.settings.get('message_format_normalize_headers', True)
+        if isinstance(normalize, str):
+            normalize = normalize.lower() not in ('false', '0')
         if not normalize:
             return header_clean
             
         # Load standard mapped names from settings
-        name_new = self.settings.get('message_format_name_new', 'New')
-        name_improvements = self.settings.get('message_format_name_improvements', 'Improvements')
-        name_fixed = self.settings.get('message_format_name_fixed', 'Fixed')
-        name_changes = self.settings.get('message_format_name_changes', 'Changes')
+        name_new = self.settings.get('message_format_name_new') or 'New'
+        name_improvements = self.settings.get('message_format_name_improvements') or 'Improvements'
+        name_fixed = self.settings.get('message_format_name_fixed') or 'Fixed'
+        name_changes = self.settings.get('message_format_name_changes') or 'Changes'
         
         # Map variations to standard names
         if header_lower in ['new', 'added']:

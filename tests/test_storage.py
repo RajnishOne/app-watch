@@ -42,6 +42,9 @@ def test_settings_defaults_are_merged_with_saved_values(tmp_path):
     assert settings["smtp_host"] == "smtp.example.com"
     assert settings["smtp_port"] == "587"
     assert settings["message_format_bullet"] == "- "
+    assert settings["message_format_normalize_headers"] is True
+    assert settings["message_format_name_fixed"] == "Fixed"
+    assert settings["message_format_custom_headers"] == ""
 
 
 def test_apps_crud_round_trip(tmp_path):
