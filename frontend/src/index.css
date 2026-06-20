@@ -1325,3 +1325,52 @@ code {
   width: 18px;
   height: 18px;
 }
+
+/* Platform Selector UI */
+.platform-selector {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.platform-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+}
+
+.platform-option:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+}
+
+.platform-option.active {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(212, 90, 133, 0.15);
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.platform-icon {
+  font-size: 20px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}

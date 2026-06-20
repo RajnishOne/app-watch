@@ -343,8 +343,10 @@ def post_to_discord(app_id):
         return {'error': str(e)}, 500
 
 
-def fetch_app_info(app_store_id, country='us'):
+def fetch_app_info(app_store_id, country='us', platform='ios'):
     """Proxy through current monitor instance (supports runtime monitor reload)."""
+    if platform == 'android':
+        return monitor.fetch_android_app_info(app_store_id, country)
     return monitor.fetch_app_info(app_store_id, country)
 
 

@@ -1,3 +1,4 @@
+import re
 import requests
 from flask import Blueprint, Response, jsonify, request
 
@@ -39,13 +40,22 @@ def create_apps_blueprint(
         name = str(data["name"]).strip()
         app_store_id = str(data["app_store_id"]).strip()
         app_store_country = str(data.get("app_store_country", "us")).strip().lower()
+        platform = str(data.get("platform", "ios")).strip().lower()
 
         if not name:
             return jsonify({"error": "App name cannot be empty"}), 400
-        if not app_store_id or not app_store_id.isdigit():
-            return jsonify({"error": "App Store ID must be a number"}), 400
+        if platform not in ["ios", "android"]:
+            return jsonify({"error": "Platform must be either ios or android"}), 400
+            
+        if platform == "ios":
+            if not app_store_id or not app_store_id.isdigit():
+                return jsonify({"error": "App Store ID must be a number for iOS apps"}), 400
+        else:
+            if not app_store_id or not re.match(r"^[a-zA-Z0-9._-]+$", app_store_id):
+                return jsonify({"error": "Google Play Package name must be a valid identifier (alphanumeric, dots, hyphens, and underscores)"}), 400
+                
         if len(app_store_country) != 2 or not app_store_country.isalpha():
-            return jsonify({"error": "App Store country must be a 2-letter code (e.g., us, gb, in)"}), 400
+            return jsonify({"error": "Country code must be a 2-letter code (e.g., us, gb, in)"}), 400
 
         notification_destinations = data.get("notification_destinations", [])
         if not isinstance(notification_destinations, list):
@@ -75,6 +85,7 @@ def create_apps_blueprint(
             "name": name,
             "app_store_id": app_store_id,
             "app_store_country": app_store_country,
+            "platform": platform,
             "notification_destinations": notification_destinations,
             "interval_override": interval_override,
             "enabled": data.get("enabled", True),
@@ -82,7 +93,7 @@ def create_apps_blueprint(
 
         if "icon_url" not in data or not data.get("icon_url"):
             try:
-                app_info = fetch_app_info(app_store_id, app_store_country)
+                app_info = fetch_app_info(app_store_id, app_store_country, platform=platform)
                 if app_info and app_info.get("artworkUrl"):
                     app_data["icon_url"] = app_info["artworkUrl"]
             except Exception as e:
@@ -130,16 +141,25 @@ def create_apps_blueprint(
                 return jsonify({"error": "App name cannot be empty"}), 400
             app["name"] = name
 
+        platform = data.get("platform", app.get("platform", "ios"))
+        if platform not in ["ios", "android"]:
+            return jsonify({"error": "Platform must be either ios or android"}), 400
+        app["platform"] = platform
+
         if "app_store_id" in data:
             app_store_id = str(data["app_store_id"]).strip()
-            if not app_store_id or not app_store_id.isdigit():
-                return jsonify({"error": "App Store ID must be a number"}), 400
+            if platform == "ios":
+                if not app_store_id or not app_store_id.isdigit():
+                    return jsonify({"error": "App Store ID must be a number for iOS apps"}), 400
+            else:
+                if not app_store_id or not re.match(r"^[a-zA-Z0-9._-]+$", app_store_id):
+                    return jsonify({"error": "Google Play Package name must be a valid identifier (alphanumeric, dots, hyphens, and underscores)"}), 400
             app["app_store_id"] = app_store_id
 
         if "app_store_country" in data:
             app_store_country = str(data["app_store_country"]).strip().lower() if data["app_store_country"] else "us"
             if len(app_store_country) != 2 or not app_store_country.isalpha():
-                return jsonify({"error": "App Store country must be a 2-letter code (e.g., us, gb, in)"}), 400
+                return jsonify({"error": "Country code must be a 2-letter code (e.g., us, gb, in)"}), 400
             app["app_store_country"] = app_store_country
         elif not app.get("app_store_country"):
             app["app_store_country"] = "us"
@@ -178,9 +198,9 @@ def create_apps_blueprint(
 
         if "icon_url" in data:
             app["icon_url"] = data["icon_url"]
-        elif "app_store_id" in data or "app_store_country" in data:
+        elif "app_store_id" in data or "app_store_country" in data or "platform" in data:
             try:
-                app_info = fetch_app_info(app["app_store_id"], app.get("app_store_country", "us"))
+                app_info = fetch_app_info(app["app_store_id"], app.get("app_store_country", "us"), platform=platform)
                 if app_info and app_info.get("artworkUrl"):
                     app["icon_url"] = app_info["artworkUrl"]
             except Exception as e:
@@ -266,9 +286,11 @@ def create_apps_blueprint(
     def get_app_metadata(app_store_id):
         try:
             country = request.args.get("country", "us")
-            app_info = fetch_app_info(app_store_id, country)
+            platform = request.args.get("platform", "ios")
+            app_info = fetch_app_info(app_store_id, country, platform=platform)
             if not app_info:
-                return jsonify({"error": "App not found in App Store"}), 404
+                store_name = 'Google Play' if platform == 'android' else 'App Store'
+                return jsonify({"error": f"App not found in {store_name}"}), 404
             return jsonify(
                 {
                     "trackName": app_info.get("trackName"),

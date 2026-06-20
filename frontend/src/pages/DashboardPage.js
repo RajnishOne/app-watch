@@ -9,7 +9,7 @@ export function DashboardPage({ apps, message, onAddApp, onEditApp, onDeleteApp,
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Apps</h1>
-          <p className="page-subtitle">Monitor your iOS apps for new releases</p>
+          <p className="page-subtitle">Monitor your iOS and Android apps for new releases</p>
         </div>
         <div className="page-header-right">
           <button className="btn btn-primary" onClick={onAddApp}>
@@ -123,14 +123,23 @@ export function AppCard({ app, onEdit, onDelete, onCheck, onPost, checking, post
     <div className="app-card">
       <div className="app-card-header">
         <img 
-          src={app.icon_url || '/iosdefault.png'} 
+          src={app.icon_url || (app.platform === 'android' ? '/androiddefault.png' : '/iosdefault.png')} 
           alt={app.name}
           className="app-icon"
-          onError={(e) => { e.target.src = '/iosdefault.png'; }}
+          onError={(e) => { e.target.src = app.platform === 'android' ? '/androiddefault.png' : '/iosdefault.png'; }}
         />
         <div className="app-title-section">
-          <div className="app-name">{app.name}</div>
-          <div className="app-store-id">ID: {app.app_store_id}</div>
+          <div className="app-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '14px', opacity: 0.8 }} title={app.platform === 'android' ? 'Android App' : 'iOS App'}>
+              {app.platform === 'android' ? '🤖' : '🍎'}
+            </span>
+            <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+              {app.name}
+            </span>
+          </div>
+          <div className="app-store-id">
+            {app.platform === 'android' ? 'Package: ' : 'ID: '}{app.app_store_id}
+          </div>
         </div>
         <span className={`app-status-badge ${app.enabled ? 'enabled' : 'disabled'}`}>
           {app.enabled ? 'Enabled' : 'Disabled'}

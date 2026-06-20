@@ -41,6 +41,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     name: editingApp?.name || '',
     app_store_id: String(editingApp?.app_store_id ?? ''),
     app_store_country: String(editingApp?.app_store_country ?? 'us').toLowerCase(),
+    platform: editingApp?.platform || 'ios',
     interval_override: String(editingApp?.interval_override ?? ''),
     enabled: editingApp?.enabled !== false,
     icon_url: editingApp?.icon_url || ''
@@ -75,12 +76,14 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
   useEffect(() => {
     const appStoreId = formData.app_store_id.trim();
     const appStoreCountry = String(formData.app_store_country ?? 'us').trim().toLowerCase();
+    const isValidId = formData.platform === 'ios' ? /^\d+$/.test(appStoreId) : /^[a-zA-Z0-9._-]+$/.test(appStoreId);
     
-    if (appStoreId && /^\d+$/.test(appStoreId)) {
+    if (appStoreId && isValidId) {
       if (
         editingApp &&
         editingApp.app_store_id === appStoreId &&
-        String(editingApp.app_store_country ?? 'us').toLowerCase() === appStoreCountry
+        String(editingApp.app_store_country ?? 'us').toLowerCase() === appStoreCountry &&
+        editingApp.platform === formData.platform
       ) {
         return;
       }
@@ -88,7 +91,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
       const timeoutId = setTimeout(async () => {
         setFetchingMetadata(true);
         try {
-          const metadata = await fetchAppMetadata(appStoreId, appStoreCountry);
+          const metadata = await fetchAppMetadata(appStoreId, appStoreCountry, formData.platform);
           if (metadata) {
             if (metadata.artworkUrl) {
               setFormData((prev) => ({ ...prev, icon_url: metadata.artworkUrl }));
@@ -119,7 +122,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
       setSuggestedName('');
       setFormData(prev => ({ ...prev, icon_url: '' }));
     }
-  }, [formData.app_store_id, formData.app_store_country, editingApp]);
+  }, [formData.app_store_id, formData.app_store_country, formData.platform, editingApp]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -128,13 +131,21 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     const intervalOverrideVal = String(formData.interval_override ?? '').trim();
 
     if (!String(formData.name ?? '').trim()) newErrors.name = 'App Name is required';
-    if (!appStoreIdVal) {
-      newErrors.app_store_id = 'App Store ID is required';
-    } else if (!/^\d+$/.test(appStoreIdVal)) {
-      newErrors.app_store_id = 'App Store ID must be a number';
+    if (formData.platform === 'ios') {
+      if (!appStoreIdVal) {
+        newErrors.app_store_id = 'App Store ID is required';
+      } else if (!/^\d+$/.test(appStoreIdVal)) {
+        newErrors.app_store_id = 'App Store ID must be a number';
+      }
+    } else {
+      if (!appStoreIdVal) {
+        newErrors.app_store_id = 'Package ID is required';
+      } else if (!/^[a-zA-Z0-9._-]+$/.test(appStoreIdVal)) {
+        newErrors.app_store_id = 'Package ID must be a valid Google Play Package name (alphanumeric, dots, hyphens, and underscores)';
+      }
     }
     if (!appStoreCountryVal) {
-      newErrors.app_store_country = 'App Store country is required';
+      newErrors.app_store_country = 'Store country is required';
     } else if (!/^[a-z]{2}$/i.test(appStoreCountryVal)) {
       newErrors.app_store_country = 'Use a 2-letter country code (e.g., us, gb, in)';
     }
@@ -178,8 +189,13 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     const appStoreId = String(formData.app_store_id ?? '').trim();
     const appStoreCountry = String(formData.app_store_country ?? '').trim();
     const intervalOverride = String(formData.interval_override ?? '').trim();
-    if (!name || !appStoreId || !/^\d+$/.test(appStoreId)) {
+    if (!name || !appStoreId) {
       return false;
+    }
+    if (formData.platform === 'ios') {
+      if (!/^\d+$/.test(appStoreId)) return false;
+    } else {
+      if (!/^[a-zA-Z0-9._-]+$/.test(appStoreId)) return false;
     }
     if (!appStoreCountry || !/^[a-z]{2}$/i.test(appStoreCountry)) {
       return false;
@@ -315,6 +331,36 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
               </div>
               <div className="card-body">
                 <div className="form-group">
+                  <label className="form-label">Platform <span className="required">*</span></label>
+                  <div className="platform-selector">
+                    <label className={`platform-option ${formData.platform === 'ios' ? 'active' : ''}`}>
+                      <input
+                        type="radio"
+                        name="platform"
+                        value="ios"
+                        checked={formData.platform === 'ios'}
+                        onChange={handleChange}
+                        className="sr-only"
+                      />
+                      <span className="platform-icon">🍎</span>
+                      <span>iOS (App Store)</span>
+                    </label>
+                    <label className={`platform-option ${formData.platform === 'android' ? 'active' : ''}`}>
+                      <input
+                        type="radio"
+                        name="platform"
+                        value="android"
+                        checked={formData.platform === 'android'}
+                        onChange={handleChange}
+                        className="sr-only"
+                      />
+                      <span className="platform-icon">🤖</span>
+                      <span>Android (Google Play)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="form-group">
                   <label className="form-label">App Name <span className="required">*</span></label>
                   <input
                     type="text"
@@ -332,22 +378,30 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">App Store ID <span className="required">*</span></label>
+                  <label className="form-label">
+                    {formData.platform === 'ios' ? 'App Store ID' : 'Google Play Package ID'} <span className="required">*</span>
+                  </label>
                   <input
                     type="text"
                     name="app_store_id"
                     value={formData.app_store_id}
                     onChange={handleChange}
-                    placeholder="e.g., 123456789"
+                    placeholder={formData.platform === 'ios' ? "e.g., 123456789" : "e.g., com.example.app"}
                     className={`form-input ${errors.app_store_id ? 'error' : ''}`}
                     disabled={fetchingMetadata}
                   />
-                  <span className="form-hint">Find this in the App Store URL: apps.apple.com/app/id<strong>123456789</strong></span>
+                  {formData.platform === 'ios' ? (
+                    <span className="form-hint">Find this in the App Store URL: apps.apple.com/app/id<strong>123456789</strong></span>
+                  ) : (
+                    <span className="form-hint">Find this in the Google Play URL: play.google.com/store/apps/details?id=<strong>com.example.app</strong></span>
+                  )}
                   {errors.app_store_id && <span className="form-error">{errors.app_store_id}</span>}
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">App Store Country <span className="required">*</span></label>
+                  <label className="form-label">
+                    {formData.platform === 'ios' ? 'App Store Country' : 'Store Country/Language'} <span className="required">*</span>
+                  </label>
                   <input
                     type="text"
                     name="app_store_country"
@@ -560,10 +614,17 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
               const intervalOverride = String(formData.interval_override ?? '').trim();
               const missing = [];
               if (!name) missing.push('App Name');
-              if (!appStoreId) missing.push('App Store ID');
-              else if (!/^\d+$/.test(appStoreId)) missing.push('App Store ID must be numbers only');
-              if (!appStoreCountry) missing.push('App Store Country');
-              else if (!/^[a-z]{2}$/i.test(appStoreCountry)) missing.push('App Store Country must be a 2-letter code like us, gb, in');
+              if (!appStoreId) {
+                missing.push(formData.platform === 'ios' ? 'App Store ID' : 'Package ID');
+              } else {
+                if (formData.platform === 'ios' && !/^\d+$/.test(appStoreId)) {
+                  missing.push('App Store ID must be numbers only');
+                } else if (formData.platform === 'android' && !/^[a-zA-Z0-9._-]+$/.test(appStoreId)) {
+                  missing.push('Package ID must be a valid identifier (letters, numbers, dots, hyphens, and underscores)');
+                }
+              }
+              if (!appStoreCountry) missing.push('Store Country');
+              else if (!/^[a-z]{2}$/i.test(appStoreCountry)) missing.push('Store Country must be a 2-letter code like us, gb, in');
               if (intervalOverride && !/^\d+[hmsd]$/i.test(intervalOverride)) missing.push('Check Interval: use format like 6h, 30m, 1d (no spaces)');
               return missing.length > 0 ? (
                 <div className="alert alert-warning" style={{ marginBottom: '16px' }}>
@@ -576,7 +637,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                 type="submit"
                 className="btn btn-primary btn-lg"
                 disabled={!isFormValid()}
-                title={!isFormValid() ? 'Required: App Name, App Store ID (numbers only), and App Store Country (2 letters). If you use Check Interval, use format like 6h, 30m, or 1d.' : undefined}
+                title={!isFormValid() ? (formData.platform === 'ios' ? 'Required: App Name, App Store ID (numbers only), and App Store Country (2 letters). If you use Check Interval, use format like 6h, 30m, or 1d.' : 'Required: App Name, Package ID (alphanumeric, dots, hyphens, and underscores), and Store Country (2 letters). If you use Check Interval, use format like 6h, 30m, or 1d.') : undefined}
               >
                 <Icons.Check /> {editingApp ? 'Update App' : 'Save App'}
               </button>

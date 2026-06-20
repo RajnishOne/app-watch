@@ -13,6 +13,11 @@ from urllib3.util.retry import Retry
 from backend.notifier import NotificationHandler
 
 try:
+    from google_play_scraper import app as play_app
+except ImportError:
+    play_app = None
+
+try:
     import fcntl
 except ImportError:
     fcntl = None
@@ -135,12 +140,56 @@ class AppStoreMonitor:
         # If we exhausted all retries, raise the last exception
         if last_exception:
             raise last_exception
+            
+    def fetch_android_app_info(self, package_id, country="us"):
+        """Fetch app information from Google Play Store scraper with retry logic"""
+        country_code = self._normalize_country(country)
+        
+        last_exception = None
+        for attempt in range(self.MAX_RETRIES + 1):
+            try:
+                if play_app is None:
+                    raise ImportError("google-play-scraper is not installed or failed to import")
+                    
+                result = play_app(
+                    package_id,
+                    lang='en',
+                    country=country_code
+                )
+                
+                if not result:
+                    return None
+                
+                return {
+                    'version': result.get('version'),
+                    'releaseNotes': result.get('recentChanges', ''),
+                    'bundleId': package_id,
+                    'trackName': result.get('title'),
+                    'artistName': result.get('developer'),
+                    'artworkUrl': result.get('icon'),
+                    'updated': result.get('updated')  # Unix timestamp in ms
+                }
+            except Exception as e:
+                last_exception = e
+                if attempt < self.MAX_RETRIES:
+                    wait_time = self.RETRY_DELAY * (2 ** attempt)  # Exponential backoff
+                    logger.warning(
+                        f"Attempt {attempt + 1}/{self.MAX_RETRIES + 1} failed for Android app {package_id} ({country_code}): {e}. "
+                        f"Retrying in {wait_time}s..."
+                    )
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"All {self.MAX_RETRIES + 1} attempts failed for Android app {package_id} ({country_code}): {e}")
+        
+        if last_exception:
+            raise last_exception
     
     def check_app(self, app):
         """Check app for new version and post if needed"""
         app_id = app['id']
         app_store_id = app['app_store_id']
         app_store_country = self._normalize_country(app.get('app_store_country', 'us'))
+        platform = app.get('platform', 'ios')
         
         # Get notification destinations - support both new format and legacy webhook_url
         notification_destinations = app.get('notification_destinations', [])
@@ -176,24 +225,33 @@ class AppStoreMonitor:
                         logger.debug(f"Error parsing last check time: {e}")
 
                 # Fetch current app info
-                app_info = self.fetch_app_info(app_store_id, app_store_country)
+                if platform == 'android':
+                    app_info = self.fetch_android_app_info(app_store_id, app_store_country)
+                else:
+                    app_info = self.fetch_app_info(app_store_id, app_store_country)
                 
                 if not app_info:
+                    store_name = 'Google Play' if platform == 'android' else 'App Store'
                     return {
                         'success': False,
-                        'error': 'App not found in App Store',
+                        'error': f'App not found in {store_name}',
                         'checked_at': datetime.now().isoformat()
                     }
                 
                 current_version = app_info['version']
                 release_notes = app_info.get('releaseNotes', '')
                 
-                # Get last posted version
+                # Get last posted version and other track states
                 last_version = self.storage.get_last_version(app_id)
+                last_updated_time = self.storage.get_last_updated_time(app_id) if platform == 'android' else None
                 
                 # Update last check time and current version
                 self.storage.update_last_check(app_id, datetime.now().isoformat())
                 self.storage.save_current_version(app_id, current_version)
+                
+                # For Android, also save the updated timestamp
+                if platform == 'android' and app_info.get('updated'):
+                    self.storage.save_last_updated_time(app_id, app_info['updated'])
                 
                 # Update app icon URL if available
                 artwork_url = app_info.get('artworkUrl')
@@ -204,8 +262,23 @@ class AppStoreMonitor:
                         app_data['icon_url'] = artwork_url
                         self.storage.save_app(app_data)
                 
+                # Determine if version has changed / updated
+                is_updated = False
+                if not last_version:
+                    is_updated = True
+                elif platform == 'android':
+                    current_updated_time = app_info.get('updated')
+                    if current_updated_time and last_updated_time:
+                        if str(current_updated_time) != str(last_updated_time):
+                            is_updated = True
+                    elif current_version != last_version:
+                        is_updated = True
+                else:
+                    if current_version != last_version:
+                        is_updated = True
+
                 # Check if version changed
-                if last_version and current_version == last_version:
+                if not is_updated:
                     return {
                         'success': True,
                         'message': 'No new version',
@@ -323,6 +396,7 @@ class AppStoreMonitor:
         app_id = app['id']
         app_store_id = app['app_store_id']
         app_store_country = self._normalize_country(app.get('app_store_country', 'us'))
+        platform = app.get('platform', 'ios')
         
         # Get notification destinations - support both new format and legacy webhook_url
         notification_destinations = app.get('notification_destinations', [])
@@ -335,12 +409,16 @@ class AppStoreMonitor:
         
         try:
             # Fetch current app info
-            app_info = self.fetch_app_info(app_store_id, app_store_country)
+            if platform == 'android':
+                app_info = self.fetch_android_app_info(app_store_id, app_store_country)
+            else:
+                app_info = self.fetch_app_info(app_store_id, app_store_country)
             
             if not app_info:
+                store_name = 'Google Play' if platform == 'android' else 'App Store'
                 return {
                     'success': False,
-                    'error': 'App not found in App Store'
+                    'error': f'App not found in {store_name}'
                 }
             
             current_version = app_info['version']
@@ -348,6 +426,10 @@ class AppStoreMonitor:
             
             # Update current version
             self.storage.save_current_version(app_id, current_version)
+            
+            # For Android, also save the updated timestamp
+            if platform == 'android' and app_info.get('updated'):
+                self.storage.save_last_updated_time(app_id, app_info['updated'])
             
             # Format and post to all destinations
             formatted_notes = self.formatter.format_release_notes(current_version, release_notes)

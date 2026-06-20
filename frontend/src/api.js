@@ -48,10 +48,10 @@ export async function putSettings(settingsToSave) {
 }
 
 /** Resolves to metadata or `null` if the app is unknown or the request fails (soft failure for the form). */
-export async function fetchAppMetadata(appStoreId, country = 'us') {
+export async function fetchAppMetadata(appStoreId, country = 'us', platform = 'ios') {
   try {
     const normalizedCountry = String(country || 'us').trim().toLowerCase() || 'us';
-    const params = new URLSearchParams({ country: normalizedCountry });
+    const params = new URLSearchParams({ country: normalizedCountry, platform });
     const { data } = await apiRequest(
       `/api/apps/metadata/${encodeURIComponent(String(appStoreId))}?${params.toString()}`
     );

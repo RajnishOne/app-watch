@@ -64,20 +64,43 @@ def test_apps_crud_round_trip(tmp_path):
     assert saved["name"] == "Example App"
     assert saved["app_store_id"] == "123456789"
     assert saved["app_store_country"] == "us"
+    assert saved["platform"] == "ios"
 
     storage.save_last_version(app_id, "1.2.3")
     storage.save_current_version(app_id, "1.2.4")
     storage.update_last_check(app_id, "2026-01-01T00:00:00")
+    storage.save_last_updated_time(app_id, "1616099487000")
 
     assert len(storage.get_all_apps()) == 1
+    assert storage.get_last_updated_time(app_id) == "1616099487000"
 
     app_dir = storage.data_dir / "apps" / app_id
     assert (app_dir / "version.txt").exists()
     assert (app_dir / "current_version.txt").exists()
     assert (app_dir / "check.txt").exists()
+    assert (app_dir / "last_updated_time.txt").exists()
 
     assert storage.delete_app(app_id) is True
     assert storage.get_app(app_id) is None
     assert not (app_dir / "version.txt").exists()
     assert not (app_dir / "current_version.txt").exists()
     assert not (app_dir / "check.txt").exists()
+    assert not (app_dir / "last_updated_time.txt").exists()
+
+
+def test_android_app_saving(tmp_path):
+    storage = StorageManager(tmp_path / "data")
+    app_payload = {
+        "name": "Android App",
+        "app_store_id": "com.example.android",
+        "platform": "android",
+        "notification_destinations": [],
+        "enabled": True,
+    }
+
+    app_id = storage.save_app(app_payload)
+    saved = storage.get_app(app_id)
+
+    assert saved is not None
+    assert saved["platform"] == "android"
+    assert saved["app_store_id"] == "com.example.android"

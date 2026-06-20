@@ -175,6 +175,7 @@ class StorageManager:
         for app_id, app_data in apps_dict.items():
             app = {
                 'id': app_id,
+                'platform': app_data.get('platform', 'ios'),
                 **app_data
             }
             
@@ -197,6 +198,7 @@ class StorageManager:
         app_data = apps_dict[app_id]
         app = {
             'id': app_id,
+            'platform': app_data.get('platform', 'ios'),
             **app_data
         }
         
@@ -222,6 +224,7 @@ class StorageManager:
             'name': app_data['name'],
             'app_store_id': app_data['app_store_id'],
             'app_store_country': str(app_data.get('app_store_country', 'us')).strip().lower() or 'us',
+            'platform': app_data.get('platform', 'ios'),
             'interval_override': app_data.get('interval_override'),
             'enabled': app_data.get('enabled', True)
         }
@@ -270,6 +273,11 @@ class StorageManager:
         check_file = self._get_check_file(app_id)
         if check_file.exists():
             check_file.unlink()
+            
+        # Delete last updated time file if it exists
+        update_file = self._get_android_update_time_file(app_id)
+        if update_file.exists():
+            update_file.unlink()
         
         return True
     
@@ -290,6 +298,32 @@ class StorageManager:
         app_dir = self.data_dir / 'apps' / app_id
         app_dir.mkdir(parents=True, exist_ok=True)
         return app_dir / 'current_version.txt'
+        
+    def _get_android_update_time_file(self, app_id):
+        """Get path to last updated time file for an Android app"""
+        app_dir = self.data_dir / 'apps' / app_id
+        app_dir.mkdir(parents=True, exist_ok=True)
+        return app_dir / 'last_updated_time.txt'
+
+    def get_last_updated_time(self, app_id):
+        """Get last updated timestamp for Android app"""
+        update_file = self._get_android_update_time_file(app_id)
+        if update_file.exists():
+            try:
+                return update_file.read_text().strip()
+            except Exception as e:
+                logger.error(f"Error reading last updated time file: {e}")
+                return None
+        return None
+
+    def save_last_updated_time(self, app_id, timestamp_str):
+        """Save last updated timestamp for Android app"""
+        update_file = self._get_android_update_time_file(app_id)
+        try:
+            update_file.write_text(str(timestamp_str))
+        except Exception as e:
+            logger.error(f"Error saving last updated time: {e}")
+            raise
     
     def get_last_version(self, app_id):
         """Get last posted version for an app"""
