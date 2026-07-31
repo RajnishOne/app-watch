@@ -36,6 +36,7 @@ data/
 *.sqlite
 
 # Docker
+.env
 .env.local
 docker-compose.override.yml
 

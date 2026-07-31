@@ -147,7 +147,14 @@ You can add more apps by clicking **"Add App"** again. Each app can use differen
 
 ## Security and network exposure
 
-**Web interface:** App Watch does **not** provide login, passwords, or other built-in access control for the UI. Anyone who can open the server URL in a browser can use the application (manage apps, change settings, send notifications, and so on).
+**Web interface:** Optional HTTP Basic Auth can protect both the UI and REST API. Set both `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD`; if both are empty, authentication remains disabled. The lightweight `/health` endpoint stays public for container health checks. Basic Auth should be used over HTTPS on untrusted networks because HTTP does not encrypt credentials.
+
+With the provided Compose file, create an untracked `.env` next to it and restart the container:
+
+```env
+BASIC_AUTH_USERNAME=admin
+BASIC_AUTH_PASSWORD=replace-with-a-strong-password
+```
 
 **If you expose the app beyond your own machine** (LAN, VPS, port forwarding, cloud host, etc.), you are responsible for restricting who can reach it. Common approaches:
 
@@ -155,7 +162,7 @@ You can add more apps by clicking **"Add App"** again. Each app can use differen
 - **Private network access**: Use [Tailscale](https://tailscale.com/), [WireGuard](https://www.wireguard.com/), another VPN, or SSH port forwarding so the UI is only reachable from trusted devices, not from the public internet.
 - **Firewall and binding**: Restrict inbound traffic with host or cloud firewall rules so only trusted networks or IPs can reach the app port. You can also bind the published port to localhost only (for example `127.0.0.1:8192:8192` in Docker Compose) and access the UI via SSH tunnel or VPN.
 
-**API key (Settings → Security):** The UI shows an API key for scripts and integrations (for example `X-Api-Key` or `Authorization: Bearer`). **The application does not currently require this key to call the REST API**—if someone can reach your instance over the network, they can use the API without it—so **network-level protection** (above) is what actually restricts access. You should still **treat the API key as a secret**: do not commit it to repositories, paste it into public issues, or share it unnecessarily, and use **Regenerate** if it may have leaked, so automation and any future hardening remain trustworthy.
+**API key (Settings → Security):** The UI still shows an API key, but the server does not currently accept it as an authentication method. When Basic Auth is enabled, API clients must send HTTP Basic credentials. Continue treating the API key as a secret and regenerate it if it may have leaked.
 
 ## How It Works
 
@@ -349,6 +356,8 @@ services:
       - GUNICORN_WORKERS=1                     # Gunicorn worker processes (container default: 1)
       - GUNICORN_THREADS=4                     # Threads per worker (container default: 4)
       - GUNICORN_TIMEOUT=60                    # Worker timeout in seconds (container default: 60)
+      - BASIC_AUTH_USERNAME=${BASIC_AUTH_USERNAME:-} # Optional HTTP Basic Auth username
+      - BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD:-} # Optional HTTP Basic Auth password
       - TZ=America/New_York                    # Timezone (optional, e.g., UTC, Europe/London)
       - APP_VERSION=1.0.0                      # App version override (optional)
     # Alternative: use env_file
@@ -450,6 +459,8 @@ services:
 | `GUNICORN_WORKERS` | Gunicorn worker process count | `1` | Keep at `1` while using the built-in scheduler and file storage |
 | `GUNICORN_THREADS` | Threads per Gunicorn worker (`gthread`) | `4` | Integer (e.g., `2`, `4`, `8`) |
 | `GUNICORN_TIMEOUT` | Gunicorn worker request timeout (seconds) | `60` | Integer seconds (e.g., `30`, `60`, `120`) |
+| `BASIC_AUTH_USERNAME` | Optional HTTP Basic Auth username | Empty (disabled) | Set together with `BASIC_AUTH_PASSWORD` |
+| `BASIC_AUTH_PASSWORD` | Optional HTTP Basic Auth password | Empty (disabled) | Set together with `BASIC_AUTH_USERNAME` |
 | `TZ` | Timezone for timestamps and logging | System timezone | `UTC`, `America/New_York`, `Europe/London`, `Asia/Tokyo` |
 | `APP_VERSION` or `VERSION` | Application version override | Auto-detected | Version string (e.g., `1.0.0`) |
 
@@ -661,7 +672,7 @@ Configure reusable settings in the Settings page:
 
 ## API Endpoints
 
-The application provides a REST API for programmatic access. Integrations can send the API key from **Settings → Security** as `X-Api-Key: <your-key>` or `Authorization: Bearer <your-key>` where supported. **The server does not enforce authentication on these endpoints today**—whoever can reach the service can call the API—so rely on [network exposure controls](#security-and-network-exposure) for real protection, and still keep the API key private.
+The application provides a REST API for programmatic access. When `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` are configured, clients must send matching HTTP Basic credentials. The API key shown under **Settings → Security** is not currently accepted as an authentication method.
 
 - `GET /health` - Lightweight liveness (JSON `{"status":"ok"}`); intended for Docker/Kubernetes probes
 - `GET /api/apps` - List all configured apps
