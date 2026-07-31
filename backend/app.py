@@ -250,15 +250,20 @@ def check_app(app_id):
         
         # Log check result
         if result.get('success'):
-            if result.get('current_version') and result.get('last_version') and result.get('current_version') != result.get('last_version'):
+            if result.get('update_detected'):
                 # New version detected
+                auto_post_suffix = ' (auto-post disabled)' if result.get('auto_post_disabled') else ''
                 storage.add_history_entry(
                     event_type='check',
                     app_id=app_id,
                     app_name=app_name,
-                    status='success',
-                    message=f'New version detected: {result.get("current_version")}',
-                    details={'version': result.get('current_version'), 'previous_version': result.get('last_version')}
+                    status='warning' if result.get('auto_post_disabled') else 'success',
+                    message=f'New version detected: {result.get("current_version")}{auto_post_suffix}',
+                    details={
+                        'version': result.get('current_version'),
+                        'previous_version': result.get('last_version'),
+                        'auto_post_disabled': result.get('auto_post_disabled', False)
+                    }
                 )
             else:
                 # No update

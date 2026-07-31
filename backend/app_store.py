@@ -290,6 +290,7 @@ class AppStoreMonitor:
                                 'message': 'Checked recently (cached)',
                                 'current_version': current_version,
                                 'last_version': last_version,
+                                'update_detected': False,
                                 'checked_at': last_check_str,
                                 'formatted_preview': self.formatter.format_release_notes(
                                     current_version or '',
@@ -326,10 +327,6 @@ class AppStoreMonitor:
                 self.storage.update_last_check(app_id, datetime.now().isoformat())
                 self.storage.save_current_version(app_id, current_version)
                 
-                # For Android, also save the updated timestamp
-                if platform == 'android' and app_info.get('updated'):
-                    self.storage.save_last_updated_time(app_id, app_info['updated'])
-                
                 # Update app icon URL if available
                 artwork_url = app_info.get('artworkUrl')
                 if artwork_url:
@@ -339,28 +336,30 @@ class AppStoreMonitor:
                         app_data['icon_url'] = artwork_url
                         self.storage.save_app(app_data)
                 
-                # Determine if version has changed / updated
-                is_updated = False
-                if not last_version:
-                    is_updated = True
-                elif platform == 'android':
-                    current_updated_time = app_info.get('updated')
-                    if current_updated_time and last_updated_time:
-                        if str(current_updated_time) != str(last_updated_time):
-                            is_updated = True
-                    elif current_version != last_version:
-                        is_updated = True
-                else:
-                    if current_version != last_version:
-                        is_updated = True
+                # A version difference must always trigger an update. Android's
+                # updated timestamp is an additional signal for metadata/release
+                # note changes that keep the same public version.
+                current_updated_time = app_info.get('updated') if platform == 'android' else None
+                version_changed = not last_version or current_version != last_version
+                timestamp_changed = bool(
+                    platform == 'android'
+                    and current_updated_time
+                    and last_updated_time
+                    and str(current_updated_time) != str(last_updated_time)
+                )
+                is_updated = version_changed or timestamp_changed
 
                 # Check if version changed
                 if not is_updated:
+                    # Keep a baseline for future Android metadata-only changes.
+                    if current_updated_time:
+                        self.storage.save_last_updated_time(app_id, current_updated_time)
                     return {
                         'success': True,
                         'message': 'No new version',
                         'current_version': current_version,
                         'last_version': last_version,
+                        'update_detected': False,
                         'checked_at': datetime.now().isoformat(),
                         'formatted_preview': self.formatter.format_release_notes(
                             current_version,
@@ -381,6 +380,7 @@ class AppStoreMonitor:
                         'message': 'New version detected (auto-post disabled)',
                         'current_version': current_version,
                         'last_version': last_version,
+                        'update_detected': True,
                         'checked_at': datetime.now().isoformat(),
                         'formatted_preview': self.formatter.format_release_notes(
                             current_version,
@@ -419,6 +419,8 @@ class AppStoreMonitor:
                 if success_count > 0:
                     # Update last posted version if at least one destination succeeded
                     self.storage.save_last_version(app_id, current_version)
+                    if current_updated_time:
+                        self.storage.save_last_updated_time(app_id, current_updated_time)
                     message = f'New version posted to {success_count} destination(s)'
                     if error_messages:
                         message += f' ({len(error_messages)} failed)'
@@ -444,6 +446,7 @@ class AppStoreMonitor:
                         'message': message,
                         'current_version': current_version,
                         'last_version': last_version,
+                        'update_detected': True,
                         'checked_at': datetime.now().isoformat(),
                         'formatted_preview': formatted_notes
                     }
@@ -470,6 +473,8 @@ class AppStoreMonitor:
                         'success': False,
                         'error': error_msg,
                         'current_version': current_version,
+                        'last_version': last_version,
+                        'update_detected': True,
                         'checked_at': datetime.now().isoformat(),
                         'formatted_preview': formatted_notes
                     }
@@ -519,10 +524,6 @@ class AppStoreMonitor:
             # Update current version
             self.storage.save_current_version(app_id, current_version)
             
-            # For Android, also save the updated timestamp
-            if platform == 'android' and app_info.get('updated'):
-                self.storage.save_last_updated_time(app_id, app_info['updated'])
-            
             # Format and post to all destinations
             formatted_notes = self.formatter.format_release_notes(
                 current_version,
@@ -550,6 +551,8 @@ class AppStoreMonitor:
             if success_count > 0:
                 # Update last posted version if at least one destination succeeded
                 self.storage.save_last_version(app_id, current_version)
+                if platform == 'android' and app_info.get('updated'):
+                    self.storage.save_last_updated_time(app_id, app_info['updated'])
                 message = f'Posted to {success_count} destination(s)'
                 if error_messages:
                     message += f' ({len(error_messages)} failed)'
