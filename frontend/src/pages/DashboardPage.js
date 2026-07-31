@@ -1,9 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Icons } from '../components/Icons';
-import { checkApp } from '../api';
+import { checkApp, fetchSettings } from '../api';
 import { getHumanReadableError } from '../utils/errors';
 
 export function DashboardPage({ apps, message, onAddApp, onEditApp, onDeleteApp, onCheckApp, onPostApp, checking, posting }) {
+  const [notificationProfiles, setNotificationProfiles] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSettings()
+      .then(settings => {
+        if (!cancelled) {
+          setNotificationProfiles(Array.isArray(settings.notification_profiles) ? settings.notification_profiles : []);
+        }
+      })
+      .catch(error => console.error('Error loading notification profiles:', error));
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <>
       <div className="page-header">
@@ -35,6 +49,7 @@ export function DashboardPage({ apps, message, onAddApp, onEditApp, onDeleteApp,
               <AppCard
                 key={app.id}
                 app={app}
+                notificationProfiles={notificationProfiles}
                 onEdit={onEditApp}
                 onDelete={onDeleteApp}
                 onCheck={onCheckApp}
@@ -50,7 +65,7 @@ export function DashboardPage({ apps, message, onAddApp, onEditApp, onDeleteApp,
   );
 }
 
-export function AppCard({ app, onEdit, onDelete, onCheck, onPost, checking, posting }) {
+export function AppCard({ app, notificationProfiles = [], onEdit, onDelete, onCheck, onPost, checking, posting }) {
   const [preview, setPreview] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
@@ -84,6 +99,7 @@ export function AppCard({ app, onEdit, onDelete, onCheck, onPost, checking, post
     }
     
     const validDestinations = destinations.filter(d => {
+      if (d.profile_id) return true;
       if (['discord', 'slack', 'teams', 'generic'].includes(d.type)) {
         return d.webhook_url && d.webhook_url.trim();
       } else if (d.type === 'telegram') {
@@ -99,8 +115,14 @@ export function AppCard({ app, onEdit, onDelete, onCheck, onPost, checking, post
     }
     
     const counts = {};
+    const profileNames = [];
     validDestinations.forEach(d => {
-      counts[d.type] = (counts[d.type] || 0) + 1;
+      if (d.profile_id) {
+        const profile = notificationProfiles.find(item => item.id === d.profile_id);
+        profileNames.push(profile?.name || `Missing profile (${d.profile_id})`);
+      } else {
+        counts[d.type] = (counts[d.type] || 0) + 1;
+      }
     });
     
     const parts = [];
@@ -110,6 +132,7 @@ export function AppCard({ app, onEdit, onDelete, onCheck, onPost, checking, post
     if (counts.teams) parts.push(`${counts.teams} Teams`);
     if (counts.email) parts.push(`${counts.email} Email`);
     if (counts.generic) parts.push(`${counts.generic} Generic`);
+    parts.push(...profileNames);
     
     return parts.join(', ') || <span style={{ color: 'var(--text-muted)' }}>Not configured</span>;
   };

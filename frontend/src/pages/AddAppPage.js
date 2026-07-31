@@ -16,10 +16,26 @@ const getWebhookInstructions = (type) => {
   return instructions[type] || '';
 };
 
+const emptyDestination = () => ({
+  profile_id: '',
+  type: '',
+  webhook_url: '',
+  bot_token: '',
+  chat_id: '',
+  email: '',
+  smtp_host: '',
+  smtp_port: '',
+  smtp_user: '',
+  smtp_password: '',
+  smtp_from: '',
+  payload_template: ''
+});
+
 export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp }) {
   const initializeDestinations = () => {
     if (editingApp?.notification_destinations && editingApp.notification_destinations.length > 0) {
       return editingApp.notification_destinations.map(dest => ({
+        profile_id: dest.profile_id || '',
         type: dest.type || '',
         webhook_url: dest.webhook_url || '',
         bot_token: dest.bot_token || '',
@@ -35,7 +51,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     } else if (editingApp?.webhook_url) {
       return [{ type: 'discord', webhook_url: editingApp.webhook_url }];
     }
-    return [{ type: '', webhook_url: '', bot_token: '', chat_id: '', email: '', smtp_host: '', smtp_port: '', smtp_user: '', smtp_password: '', smtp_from: '', payload_template: '' }];
+    return [emptyDestination()];
   };
 
   const initialAppUrl = editingApp
@@ -78,24 +94,26 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
   const [destinations, setDestinations] = useState(initializeDestinations);
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
   const [suggestedName, setSuggestedName] = useState('');
+  const [notificationProfiles, setNotificationProfiles] = useState([]);
   
   useEffect(() => {
     document.title = editingApp ? 'Edit App - App Watch' : 'Add New App - App Watch';
     
-    if (!editingApp) {
-      const loadDefaultSettings = async () => {
-        try {
-          const settings = await fetchSettings();
+    const loadDefaultSettings = async () => {
+      try {
+        const settings = await fetchSettings();
+        setNotificationProfiles(Array.isArray(settings.notification_profiles) ? settings.notification_profiles : []);
+        if (!editingApp) {
           setFormData((prev) => ({
             ...prev,
             enabled: settings.monitoring_enabled_by_default !== false
           }));
-        } catch (error) {
-          console.error('Error loading settings:', error);
         }
-      };
-      loadDefaultSettings();
-    }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    };
+    loadDefaultSettings();
     
     return () => { document.title = 'App Watch'; };
   }, [editingApp]);
@@ -237,6 +255,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     }
     
     destinations.forEach((dest, index) => {
+      if (dest.profile_id) return;
       if (dest.type) {
         if (['discord', 'slack', 'teams', 'generic'].includes(dest.type)) {
           if (!dest.webhook_url || !dest.webhook_url.trim()) {
@@ -314,6 +333,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
       const newDests = [...prev];
       const existing = newDests[index] || {};
       newDests[index] = { 
+        profile_id: '',
         type: value, 
         webhook_url: existing.webhook_url || '',
         bot_token: existing.bot_token || '',
@@ -328,13 +348,26 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
       };
       
       if (value && index === newDests.length - 1) {
-        newDests.push({ type: '', webhook_url: '', bot_token: '', chat_id: '', email: '', smtp_host: '', smtp_port: '', smtp_user: '', smtp_password: '', smtp_from: '', payload_template: '' });
+        newDests.push(emptyDestination());
       }
       
-      while (newDests.length > 1 && !newDests[newDests.length - 2].type && !newDests[newDests.length - 1].type) {
+      while (newDests.length > 1 && !newDests[newDests.length - 2].type && !newDests[newDests.length - 2].profile_id && !newDests[newDests.length - 1].type && !newDests[newDests.length - 1].profile_id) {
         newDests.pop();
       }
       
+      return newDests;
+    });
+  };
+
+  const handleDestinationProfileChange = (index, profileId) => {
+    setDestinations(prev => {
+      const newDests = [...prev];
+      newDests[index] = profileId ? { ...emptyDestination(), profile_id: profileId } : emptyDestination();
+
+      if (profileId && index === newDests.length - 1) newDests.push(emptyDestination());
+      while (newDests.length > 1 && !newDests[newDests.length - 2].type && !newDests[newDests.length - 2].profile_id && !newDests[newDests.length - 1].type && !newDests[newDests.length - 1].profile_id) {
+        newDests.pop();
+      }
       return newDests;
     });
   };
@@ -361,8 +394,9 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     }
 
     const notificationDestinations = destinations
-      .filter(dest => dest.type)
+      .filter(dest => dest.profile_id || dest.type)
       .map(dest => {
+        if (dest.profile_id) return { profile_id: dest.profile_id };
         const result = { type: dest.type };
         if (['discord', 'slack', 'teams', 'generic'].includes(dest.type)) {
           if (dest.webhook_url) result.webhook_url = dest.webhook_url.trim();
@@ -584,6 +618,31 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                 {destinations.map((dest, index) => (
                   <div key={index} className="destination-card">
                     <div className="form-group">
+                      <label className="form-label">Saved Profile</label>
+                      <select
+                        value={dest.profile_id || ''}
+                        onChange={(e) => handleDestinationProfileChange(index, e.target.value)}
+                        className="form-select"
+                      >
+                        <option value="">Custom destination</option>
+                        {dest.profile_id && !notificationProfiles.some(profile => profile.id === dest.profile_id) && (
+                          <option value={dest.profile_id}>Missing profile ({dest.profile_id})</option>
+                        )}
+                        {notificationProfiles.map(profile => (
+                          <option key={profile.id} value={profile.id}>{profile.name} ({profile.type})</option>
+                        ))}
+                      </select>
+                      {dest.profile_id && notificationProfiles.some(profile => profile.id === dest.profile_id) && (
+                        <span className="form-hint">Credentials are managed in Settings → Notification Profiles.</span>
+                      )}
+                      {dest.profile_id && !notificationProfiles.some(profile => profile.id === dest.profile_id) && (
+                        <span className="form-error">This profile no longer exists. Select another profile or use a custom destination.</span>
+                      )}
+                    </div>
+
+                    {!dest.profile_id && (
+                      <>
+                    <div className="form-group">
                       <label className="form-label">
                         {index === 0 ? 'Destination Type' : `Destination ${index + 1}`}
                       </label>
@@ -728,6 +787,8 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                           />
                           <span className="form-hint">Use: {'{{app_name}}'}, {'{{version}}'}, {'{{release_notes}}'}, {'{{formatted_content}}'}</span>
                         </div>
+                      </>
+                    )}
                       </>
                     )}
                   </div>

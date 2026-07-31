@@ -13,6 +13,7 @@ from pathlib import Path
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from backend.notifier import NotificationHandler
+from backend.notification_profiles import resolve_notification_destination
 
 try:
     from google_play_scraper import app as play_app
@@ -405,9 +406,16 @@ class AppStoreMonitor:
                 destination_results = []
                 
                 for dest in notification_destinations:
-                    dest_type = dest.get('type', 'unknown')
+                    resolved_dest, resolve_error = resolve_notification_destination(dest, self.settings)
+                    if resolve_error:
+                        dest_type = f"profile:{dest.get('profile_id', 'unknown')}"
+                        error_messages.append(f'{dest_type}: {resolve_error}')
+                        destination_results.append({'type': dest_type, 'status': 'error', 'error': resolve_error})
+                        continue
+
+                    dest_type = resolved_dest.get('type', 'unknown')
                     success, error_msg = self.notifier.send_notification(
-                        dest, app_name, current_version, release_notes, formatted_notes
+                        resolved_dest, app_name, current_version, release_notes, formatted_notes
                     )
                     if success:
                         success_count += 1
@@ -536,9 +544,16 @@ class AppStoreMonitor:
             destination_results = []
             
             for dest in notification_destinations:
-                dest_type = dest.get('type', 'unknown')
+                resolved_dest, resolve_error = resolve_notification_destination(dest, self.settings)
+                if resolve_error:
+                    dest_type = f"profile:{dest.get('profile_id', 'unknown')}"
+                    error_messages.append(f'{dest_type}: {resolve_error}')
+                    destination_results.append({'type': dest_type, 'status': 'error', 'error': resolve_error})
+                    continue
+
+                dest_type = resolved_dest.get('type', 'unknown')
                 success, error_msg = self.notifier.send_notification(
-                    dest, app_name, current_version, release_notes, formatted_notes
+                    resolved_dest, app_name, current_version, release_notes, formatted_notes
                 )
                 if success:
                     success_count += 1
