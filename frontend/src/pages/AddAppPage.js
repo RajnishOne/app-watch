@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icons } from '../components/Icons';
 import { fetchSettings, fetchAppMetadata } from '../api';
+import { parseAppUrl, formatAppUrl } from '../utils/appUrlParser';
 
 // Helper function to get webhook type instructions
 const getWebhookInstructions = (type) => {
@@ -36,6 +37,32 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     }
     return [{ type: '', webhook_url: '', bot_token: '', chat_id: '', email: '', smtp_host: '', smtp_port: '', smtp_user: '', smtp_password: '', smtp_from: '', payload_template: '' }];
   };
+
+  const initialAppUrl = editingApp
+    ? formatAppUrl(editingApp.platform, editingApp.app_store_id, editingApp.app_store_country)
+    : '';
+
+  const [appUrl, setAppUrl] = useState(initialAppUrl);
+  const [urlStatus, setUrlStatus] = useState(() => {
+    if (editingApp) {
+      return {
+        platform: editingApp.platform || 'ios',
+        appStoreId: String(editingApp.app_store_id || ''),
+        country: editingApp.app_store_country || 'us',
+        isValid: true,
+        error: null
+      };
+    }
+    return {
+      platform: null,
+      appStoreId: '',
+      country: null,
+      isValid: false,
+      error: null
+    };
+  });
+  const [metadataInfo, setMetadataInfo] = useState(null);
+  const userChangedUrlRef = useRef(false);
 
   const [formData, setFormData] = useState({
     name: editingApp?.name || '',
@@ -73,14 +100,59 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     return () => { document.title = 'App Watch'; };
   }, [editingApp]);
 
+  const handleUrlChange = (e) => {
+    const rawUrl = e.target.value;
+    setAppUrl(rawUrl);
+    userChangedUrlRef.current = true;
+
+    if (errors.app_url) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.app_url;
+        return next;
+      });
+    }
+
+    if (!rawUrl.trim()) {
+      setUrlStatus({
+        platform: null,
+        appStoreId: '',
+        country: null,
+        isValid: false,
+        error: null
+      });
+      setMetadataInfo(null);
+      return;
+    }
+
+    const parsed = parseAppUrl(rawUrl);
+    setUrlStatus(parsed);
+
+    if (parsed.isValid) {
+      setFormData((prev) => ({
+        ...prev,
+        platform: parsed.platform,
+        app_store_id: parsed.appStoreId,
+        app_store_country: parsed.country || prev.app_store_country || 'us'
+      }));
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.app_url;
+        delete next.app_store_id;
+        return next;
+      });
+    }
+  };
+
   useEffect(() => {
     const appStoreId = formData.app_store_id.trim();
     const appStoreCountry = String(formData.app_store_country ?? 'us').trim().toLowerCase();
     const isValidId = formData.platform === 'ios' ? /^\d+$/.test(appStoreId) : /^[a-zA-Z0-9._-]+$/.test(appStoreId);
     
-    if (appStoreId && isValidId) {
+    if (appStoreId && isValidId && formData.platform) {
       if (
         editingApp &&
+        !userChangedUrlRef.current &&
         editingApp.app_store_id === appStoreId &&
         String(editingApp.app_store_country ?? 'us').toLowerCase() === appStoreCountry &&
         editingApp.platform === formData.platform
@@ -93,16 +165,17 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
         try {
           const metadata = await fetchAppMetadata(appStoreId, appStoreCountry, formData.platform);
           if (metadata) {
+            setMetadataInfo(metadata);
             if (metadata.artworkUrl) {
               setFormData((prev) => ({ ...prev, icon_url: metadata.artworkUrl }));
             }
             if (metadata.trackName) {
               setSuggestedName(metadata.trackName);
-              setFormData((prev) => {
-                if (!prev.name.trim()) {
-                  return { ...prev, name: metadata.trackName };
-                }
-                return prev;
+              setFormData((prev) => ({ ...prev, name: metadata.trackName }));
+              setErrors((prev) => {
+                const next = { ...prev };
+                delete next.name;
+                return next;
               });
             }
           } else {
@@ -115,20 +188,33 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
         } finally {
           setFetchingMetadata(false);
         }
-      }, 800);
+      }, 500);
       
       return () => clearTimeout(timeoutId);
     } else {
       setSuggestedName('');
       setFormData(prev => ({ ...prev, icon_url: '' }));
+      if (!appStoreId) {
+        setMetadataInfo(null);
+      }
     }
   }, [formData.app_store_id, formData.app_store_country, formData.platform, editingApp]);
 
   const validateForm = () => {
     const newErrors = {};
+    const trimmedUrl = appUrl.trim();
     const appStoreIdVal = String(formData.app_store_id ?? '').trim();
     const appStoreCountryVal = String(formData.app_store_country ?? '').trim().toLowerCase();
     const intervalOverrideVal = String(formData.interval_override ?? '').trim();
+
+    if (!trimmedUrl) {
+      newErrors.app_url = 'App Store or Google Play URL is required';
+    } else {
+      const parsed = parseAppUrl(trimmedUrl);
+      if (!parsed.isValid) {
+        newErrors.app_url = parsed.error || 'Only Apple App Store and Google Play Store URLs are supported.';
+      }
+    }
 
     if (!String(formData.name ?? '').trim()) newErrors.name = 'App Name is required';
     if (formData.platform === 'ios') {
@@ -185,6 +271,11 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
   };
 
   const isFormValid = () => {
+    const trimmedUrl = appUrl.trim();
+    if (!trimmedUrl) return false;
+    const parsed = parseAppUrl(trimmedUrl);
+    if (!parsed.isValid) return false;
+
     const name = String(formData.name ?? '').trim();
     const appStoreId = String(formData.app_store_id ?? '').trim();
     const appStoreCountry = String(formData.app_store_country ?? '').trim();
@@ -294,6 +385,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
 
     const submitData = {
       ...formData,
+      app_url: appUrl.trim(),
       app_store_country: String(formData.app_store_country ?? 'us').trim().toLowerCase() || 'us',
       notification_destinations: notificationDestinations
     };
@@ -324,36 +416,73 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                 <h3 className="card-title">App Details</h3>
               </div>
               <div className="card-body">
-                <div className="form-group">
-                  <label className="form-label">Platform <span className="required">*</span></label>
-                  <div className="platform-selector">
-                    <label className={`platform-option ${formData.platform === 'ios' ? 'active' : ''}`}>
-                      <input
-                        type="radio"
-                        name="platform"
-                        value="ios"
-                        checked={formData.platform === 'ios'}
-                        onChange={handleChange}
-                        className="sr-only"
-                      />
-                      <span className="platform-icon">🍎</span>
-                      <span>iOS (App Store)</span>
+                {/* 1. App Store or Google Play URL - FIRST PLACE */}
+                <div className="form-group url-input-container">
+                  <div className="url-header-row">
+                    <label className="form-label" style={{ marginBottom: 0 }}>
+                      App Store or Google Play URL <span className="required">*</span>
                     </label>
-                    <label className={`platform-option ${formData.platform === 'android' ? 'active' : ''}`}>
-                      <input
-                        type="radio"
-                        name="platform"
-                        value="android"
-                        checked={formData.platform === 'android'}
-                        onChange={handleChange}
-                        className="sr-only"
-                      />
-                      <span className="platform-icon">🤖</span>
-                      <span>Android (Google Play)</span>
-                    </label>
+                    {urlStatus.platform && (
+                      <div className={`detected-platform-badge ${urlStatus.platform}`}>
+                        {urlStatus.platform === 'ios' ? '🍎 iOS (App Store)' : '🤖 Android (Google Play)'}
+                      </div>
+                    )}
                   </div>
+                  <div className="url-input-wrapper">
+                    <input
+                      type="url"
+                      name="app_url"
+                      value={appUrl}
+                      onChange={handleUrlChange}
+                      placeholder="e.g., https://apps.apple.com/.../id123456789 or https://play.google.com/store/apps/details?id=..."
+                      className={`form-input ${errors.app_url || (appUrl && urlStatus.error) ? 'error' : ''}`}
+                      autoFocus={!editingApp}
+                    />
+                    {fetchingMetadata && (
+                      <div className="url-status-icon" title="Fetching app info...">
+                        <span className="spinner-inline" />
+                      </div>
+                    )}
+                  </div>
+                  {appUrl && urlStatus.error ? (
+                    <span className="form-error">{urlStatus.error}</span>
+                  ) : errors.app_url ? (
+                    <span className="form-error">{errors.app_url}</span>
+                  ) : (
+                    <span className="form-hint">
+                      Only Apple App Store and Google Play Store URLs are supported. Other URLs will not work.
+                    </span>
+                  )}
+
+                  {/* App Preview Card when metadata is retrieved */}
+                  {metadataInfo && (metadataInfo.trackName || metadataInfo.artworkUrl) && (
+                    <div className="app-preview-card">
+                      {metadataInfo.artworkUrl ? (
+                        <img
+                          src={metadataInfo.artworkUrl}
+                          alt={metadataInfo.trackName || 'App icon'}
+                          className="app-preview-icon"
+                        />
+                      ) : (
+                        <div className="app-preview-icon-placeholder">
+                          {formData.platform === 'ios' ? '🍎' : '🤖'}
+                        </div>
+                      )}
+                      <div className="app-preview-info">
+                        <div className="app-preview-name">{metadataInfo.trackName || formData.name}</div>
+                        <div className="app-preview-sub">
+                          {metadataInfo.artistName && <span>{metadataInfo.artistName}</span>}
+                          {metadataInfo.version && <span className="app-preview-tag">v{metadataInfo.version}</span>}
+                          <span className="app-preview-tag">
+                            {formData.platform === 'ios' ? 'iOS App Store' : 'Google Play'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
+                {/* 2. App Name */}
                 <div className="form-group">
                   <label className="form-label">App Name <span className="required">*</span></label>
                   <input
@@ -361,19 +490,20 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    placeholder={suggestedName || "Enter your app name"}
+                    placeholder={suggestedName || (fetchingMetadata ? "Fetching app name..." : "Enter your app name")}
                     className={`form-input ${errors.name ? 'error' : ''}`}
                   />
                   {suggestedName && !formData.name && (
                     <span className="form-hint">Suggested: {suggestedName}</span>
                   )}
-                  {fetchingMetadata && <span className="form-hint">Fetching app info...</span>}
+                  {fetchingMetadata && <span className="form-hint">Fetching app name from store...</span>}
                   {errors.name && <span className="form-error">{errors.name}</span>}
                 </div>
 
+                {/* 3. App Store ID / Google Play Package ID */}
                 <div className="form-group">
                   <label className="form-label">
-                    {formData.platform === 'ios' ? 'App Store ID' : 'Google Play Package ID'} <span className="required">*</span>
+                    {formData.platform === 'ios' ? 'App Store ID' : formData.platform === 'android' ? 'Google Play Package ID' : 'Store ID / Package ID'} <span className="required">*</span>
                   </label>
                   <input
                     type="text"
@@ -385,16 +515,19 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                     disabled={fetchingMetadata}
                   />
                   {formData.platform === 'ios' ? (
-                    <span className="form-hint">Find this in the App Store URL: apps.apple.com/app/id<strong>123456789</strong></span>
+                    <span className="form-hint">App Store numerical ID (extracted from URL: apps.apple.com/app/id<strong>123456789</strong>)</span>
+                  ) : formData.platform === 'android' ? (
+                    <span className="form-hint">Package identifier (extracted from Google Play URL: ?id=<strong>com.example.app</strong>)</span>
                   ) : (
-                    <span className="form-hint">Find this in the Google Play URL: play.google.com/store/apps/details?id=<strong>com.example.app</strong></span>
+                    <span className="form-hint">Auto-populated from the App URL above.</span>
                   )}
                   {errors.app_store_id && <span className="form-error">{errors.app_store_id}</span>}
                 </div>
 
+                {/* 4. Store Country */}
                 <div className="form-group">
                   <label className="form-label">
-                    {formData.platform === 'ios' ? 'App Store Country' : 'Store Country/Language'} <span className="required">*</span>
+                    {formData.platform === 'ios' ? 'App Store Country' : 'Store Country / Region'} <span className="required">*</span>
                   </label>
                   <input
                     type="text"
@@ -405,7 +538,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                     className={`form-input ${errors.app_store_country ? 'error' : ''}`}
                     maxLength={2}
                   />
-                  <span className="form-hint">2-letter storefront code. Default is <code>us</code> if unchanged.</span>
+                  <span className="form-hint">2-letter storefront code (e.g., us, gb, in). Default is <code>us</code> if unchanged.</span>
                   {errors.app_store_country && <span className="form-error">{errors.app_store_country}</span>}
                 </div>
 
@@ -603,11 +736,18 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
             </div>
 
             {!isFormValid() && (() => {
+              const urlTrimmed = appUrl.trim();
+              const urlParsed = parseAppUrl(urlTrimmed);
               const name = String(formData.name ?? '').trim();
               const appStoreId = String(formData.app_store_id ?? '').trim();
               const appStoreCountry = String(formData.app_store_country ?? '').trim();
               const intervalOverride = String(formData.interval_override ?? '').trim();
               const missing = [];
+              if (!urlTrimmed) {
+                missing.push('App Store or Google Play URL');
+              } else if (!urlParsed.isValid) {
+                missing.push('Valid App Store or Google Play URL');
+              }
               if (!name) missing.push('App Name');
               if (!appStoreId) {
                 missing.push(formData.platform === 'ios' ? 'App Store ID' : 'Package ID');
@@ -632,7 +772,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                 type="submit"
                 className="btn btn-primary btn-lg"
                 disabled={!isFormValid()}
-                title={!isFormValid() ? (formData.platform === 'ios' ? 'Required: App Name, App Store ID (numbers only), and App Store Country (2 letters). If you use Check Interval, use format like 6h, 30m, or 1d.' : 'Required: App Name, Package ID (alphanumeric, dots, hyphens, and underscores), and Store Country (2 letters). If you use Check Interval, use format like 6h, 30m, or 1d.') : undefined}
+                title={!isFormValid() ? 'Please provide a valid App Store or Google Play URL, App Name, Store ID, and 2-letter Store Country.' : undefined}
               >
                 <Icons.Check /> {editingApp ? 'Update App' : 'Save App'}
               </button>
