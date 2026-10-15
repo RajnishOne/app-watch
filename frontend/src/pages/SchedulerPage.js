@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchHistoryQuery } from '../api';
 
 export function SchedulerPage({ onCancel, apps, message, showMessage }) {
@@ -10,21 +10,15 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
     search: ''
   });
 
-  useEffect(() => {
-    loadHistory();
-    document.title = 'Scheduler - App Watch';
-    return () => { document.title = 'App Watch'; };
-  }, []);
-
-  const loadHistory = async (filterParams = {}) => {
+  const loadHistory = useCallback(async (filterParams = {}) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
       params.append('limit', '500');
       params.append('event_type', 'scheduler_run'); // Only scheduler runs
       
-      if (filterParams.app_id || filters.app_id) params.append('app_id', filterParams.app_id || filters.app_id);
-      if (filterParams.status || filters.status) params.append('status', filterParams.status || filters.status);
+      if (filterParams.app_id) params.append('app_id', filterParams.app_id);
+      if (filterParams.status) params.append('status', filterParams.status);
 
       const data = await fetchHistoryQuery(params.toString());
       setHistory(data.history || []);
@@ -33,7 +27,13 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showMessage]);
+
+  useEffect(() => {
+    loadHistory();
+    document.title = 'Scheduler - App Watch';
+    return () => { document.title = 'App Watch'; };
+  }, [loadHistory]);
 
   const handleFilterChange = (name, value) => {
     const newFilters = { ...filters, [name]: value };

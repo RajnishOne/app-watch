@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './index.css';
 import { applyAccentToDocument, getSavedAccent } from './theme';
 import {
@@ -114,7 +114,18 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [editingApp]);
 
-  const loadApps = async () => {
+  const showMessage = useCallback((text, type = 'success') => {
+    if (messageTimeoutRef.current) {
+      clearTimeout(messageTimeoutRef.current);
+    }
+    setMessage({ text, type });
+    messageTimeoutRef.current = setTimeout(() => {
+      setMessage(null);
+      messageTimeoutRef.current = null;
+    }, 5000);
+  }, []);
+
+  const loadApps = useCallback(async () => {
     if (loadingAppsRef.current) return;
 
     try {
@@ -130,22 +141,11 @@ function App() {
       setLoading(false);
       loadingAppsRef.current = false;
     }
-  };
+  }, [showMessage]);
 
   useEffect(() => {
     loadApps();
-  }, []);
-
-  const showMessage = (text, type = 'success') => {
-    if (messageTimeoutRef.current) {
-      clearTimeout(messageTimeoutRef.current);
-    }
-    setMessage({ text, type });
-    messageTimeoutRef.current = setTimeout(() => {
-      setMessage(null);
-      messageTimeoutRef.current = null;
-    }, 5000);
-  };
+  }, [loadApps]);
 
   const handleNavigate = (page, section = null) => {
     if (page === 'dashboard') {

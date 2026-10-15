@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ACCENT_PRESETS } from '../theme';
 import { Icons } from '../components/Icons';
 import {
@@ -50,21 +50,33 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
     { id: 'appearance', label: 'Appearance' },
   ];
 
-  useEffect(() => {
-    loadSettings();
-    loadApiKey();
-    document.title = 'Settings - App Watch';
-    return () => { document.title = 'App Watch'; };
-  }, []);
-
-  const loadApiKey = async () => {
+  const loadApiKey = useCallback(async () => {
     try {
       const data = await fetchAuthStatus();
       setApiKey(data.api_key || '');
     } catch (error) {
       console.error('Error loading API key:', error);
     }
-  };
+  }, []);
+
+  const loadSettings = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchSettings();
+      setSettings(data);
+    } catch (error) {
+      showMessage(getHumanReadableError(error.message || 'Failed to load settings'), 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [showMessage]);
+
+  useEffect(() => {
+    loadSettings();
+    loadApiKey();
+    document.title = 'Settings - App Watch';
+    return () => { document.title = 'App Watch'; };
+  }, [loadApiKey, loadSettings]);
 
   const handleRegenerateApiKey = async () => {
     if (!window.confirm('Regenerate API key? This will invalidate the current key.')) return;
@@ -78,18 +90,6 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
       showMessage(getHumanReadableError(error.message || 'Failed to regenerate API key'), 'error');
     } finally {
       setRegeneratingApiKey(false);
-    }
-  };
-
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchSettings();
-      setSettings(data);
-    } catch (error) {
-      showMessage(getHumanReadableError(error.message || 'Failed to load settings'), 'error');
-    } finally {
-      setLoading(false);
     }
   };
 

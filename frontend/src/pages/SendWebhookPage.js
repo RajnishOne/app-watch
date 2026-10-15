@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Icons } from '../components/Icons';
 import { fetchWebhooksList, sendWebhooksRequest } from '../api';
 
@@ -12,11 +12,7 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
   const [sending, setSending] = useState(false);
   const [errors, setErrors] = useState({});
 
-  useEffect(() => {
-    loadWebhooks();
-  }, []);
-
-  const loadWebhooks = async () => {
+  const loadWebhooks = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchWebhooksList();
@@ -26,7 +22,11 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showMessage]);
+
+  useEffect(() => {
+    loadWebhooks();
+  }, [loadWebhooks]);
 
   const handleWebhookToggle = (webhookId) => {
     setSelectedWebhooks(prev => {
