@@ -88,7 +88,12 @@ class AppStoreMonitor:
         country_code = self._normalize_country(country)
         params = {
             'id': app_store_id,
-            'country': country_code
+            'country': country_code,
+            '_': str(time.time_ns())
+        }
+        headers = {
+            'Cache-Control': 'no-cache, no-store, max-age=0',
+            'Pragma': 'no-cache',
         }
         
         last_exception = None
@@ -97,6 +102,7 @@ class AppStoreMonitor:
                 response = self.session.get(
                     self.ITUNES_LOOKUP_URL, 
                     params=params, 
+                    headers=headers,
                     timeout=10
                 )
                 response.raise_for_status()
@@ -173,8 +179,20 @@ class AppStoreMonitor:
                 # This fixes the issue where google-play-scraper returns None/empty for recentChanges and updated.
                 if not recent_changes or not updated or version == 'Varies with device':
                     try:
-                        url = f"https://play.google.com/store/apps/details?id={package_id}&hl=en&gl={country_code}"
-                        resp = self.session.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'en'})
+                        url = (
+                            f"https://play.google.com/store/apps/details"
+                            f"?id={package_id}&hl=en&gl={country_code}&_={time.time_ns()}"
+                        )
+                        resp = self.session.get(
+                            url,
+                            timeout=10,
+                            headers={
+                                'User-Agent': 'Mozilla/5.0',
+                                'Accept-Language': 'en',
+                                'Cache-Control': 'no-cache, no-store, max-age=0',
+                                'Pragma': 'no-cache',
+                            },
+                        )
                         if resp.status_code == 200:
                             html_text = resp.text
                             
