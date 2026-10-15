@@ -522,6 +522,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                             placeholder="123456789"
                             className={`form-input ${errors[`dest_${index}_chat_id`] ? 'error' : ''}`}
                           />
+                          <span className="form-hint">Use a plain chat ID, or chat_id_topic_id for a forum topic (for example -1001234567890_2).</span>
                           {errors[`dest_${index}_chat_id`] && <span className="form-error">{errors[`dest_${index}_chat_id`]}</span>}
                         </div>
                       </>

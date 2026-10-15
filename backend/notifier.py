@@ -17,6 +17,26 @@ class NotificationHandler:
     
     def __init__(self, settings: Optional[Dict] = None):
         self.settings = settings or {}
+
+    @staticmethod
+    def _parse_telegram_chat_target(chat_target: str):
+        """
+        Parse a Telegram target in ``chat_id`` or ``chat_id_topic_id`` form.
+
+        Telegram usernames may contain underscores, so the suffix notation is
+        only interpreted for numeric chat IDs.
+        """
+        chat_target = str(chat_target or '').strip()
+        if '_' not in chat_target:
+            return chat_target, None, None
+
+        chat_id, topic_id = chat_target.rsplit('_', 1)
+        if not chat_id.lstrip('-').isdigit():
+            return chat_target, None, None
+        if not topic_id.isdigit() or int(topic_id) <= 0:
+            return None, None, 'Telegram topic must use chat_id_topic_id format, for example -1001234567890_2'
+
+        return chat_id, int(topic_id), None
     
     def send_notification(self, destination: Dict, app_name: str, version: str, release_notes: str, formatted_content: str) -> Tuple[bool, Optional[str]]:
         """
@@ -86,7 +106,7 @@ class NotificationHandler:
     def _send_telegram(self, destination: Dict, app_name: str, version: str, release_notes: str, formatted_content: str) -> Tuple[bool, Optional[str]]:
         """Send notification to Telegram bot"""
         bot_token = destination.get('bot_token', '').strip()
-        chat_id = destination.get('chat_id', '').strip()
+        chat_target = destination.get('chat_id', '').strip()
         
         # Check if bot_token is in destination, otherwise use from settings
         if not bot_token:
@@ -95,8 +115,12 @@ class NotificationHandler:
         if not bot_token:
             return False, 'Telegram bot token is required (set in destination or settings)'
         
-        if not chat_id:
+        if not chat_target:
             return False, 'Telegram chat ID is required'
+
+        chat_id, message_thread_id, target_error = self._parse_telegram_chat_target(chat_target)
+        if target_error:
+            return False, target_error
         
         try:
             # Format message for Telegram
@@ -108,6 +132,8 @@ class NotificationHandler:
                 'text': telegram_text,
                 'parse_mode': 'Markdown'
             }
+            if message_thread_id is not None:
+                payload['message_thread_id'] = message_thread_id
             
             response = requests.post(url, json=payload, timeout=10)
             response.raise_for_status()

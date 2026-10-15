@@ -96,7 +96,7 @@ Before adding apps, you need to configure at least one notification destination.
 1. Message [@BotFather](https://t.me/BotFather) on Telegram
 2. Send `/newbot` and follow instructions to create a bot
 3. Copy the bot token (format: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`)
-4. Message [@userinfobot](https://t.me/userinfobot) to get your chat ID
+4. Message [@userinfobot](https://t.me/userinfobot) to get your chat ID. For a forum topic, use `chat_id_topic_id` (for example `-1001234567890_2`).
 5. You can set the bot token in Settings for all apps, or per app
 
 **Microsoft Teams:**
