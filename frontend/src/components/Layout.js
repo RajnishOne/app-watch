@@ -33,7 +33,7 @@ export function DonateModal({ isOpen, onClose }) {
             </div>
             <div>
               <h3 id="donate-modal-title" className="donate-modal-title">Support App Watch</h3>
-              <p className="donate-modal-subtitle">Open-source iOS Update Monitor</p>
+              <p className="donate-modal-subtitle">Open-source App Update Monitor</p>
             </div>
           </div>
           <button
@@ -48,7 +48,7 @@ export function DonateModal({ isOpen, onClose }) {
 
         <div className="donate-modal-body">
           <p className="donate-modal-text">
-            App Watch is free and open-source. If it helps you track iOS app updates, consider supporting its development through any of the options below!
+            App Watch is free and open-source. If it helps you track app updates, consider supporting its development through any of the options below!
           </p>
 
           <div className="donate-modal-options">
@@ -118,7 +118,7 @@ export function Sidebar({ currentPage, onNavigate, appsCount, sidebarOpen, onClo
           <img src={FAVICON_PATH} alt="App Watch" className="sidebar-logo" />
           <div className="sidebar-brand">
             <span className="sidebar-brand-name">App Watch</span>
-            <span className="sidebar-brand-tagline">iOS Update Monitor</span>
+            <span className="sidebar-brand-tagline">App Update Monitor</span>
           </div>
         </div>
 
