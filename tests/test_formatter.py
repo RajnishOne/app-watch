@@ -148,3 +148,29 @@ def test_formatter_varies_with_device():
     assert "# Varies with device" in formatted
     assert "# vVaries with device" not in formatted
 
+
+def test_formatter_placeholders_app_and_platform():
+    release_notes = "New\n- Element A"
+    formatter = DiscordFormatter({
+        "message_format_version_header": "# {app_name} [{platform}] v{version}"
+    })
+    formatted_ios = formatter.format_release_notes(
+        "2.0.0", release_notes, app_name="Apollo", platform="ios"
+    )
+    assert "# Apollo [iOS] v2.0.0" in formatted_ios
+
+    formatted_android = formatter.format_release_notes(
+        "2.0.0", release_notes, app_name="Apollo", platform="android"
+    )
+    assert "# Apollo [Android] v2.0.0" in formatted_android
+
+
+def test_formatter_invalid_placeholder_fallback():
+    release_notes = "New\n- Element A"
+    formatter = DiscordFormatter({
+        "message_format_version_header": "# {broken_var} {version}"
+    })
+    formatted = formatter.format_release_notes("2.0.0", release_notes)
+    # Graceful fallback to default '# v2.0.0'
+    assert "# v2.0.0" in formatted
+

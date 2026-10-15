@@ -294,5 +294,37 @@ def test_fetch_android_app_info_enrichment_fallback(tmp_path, monkeypatch):
     assert result['updated'] == expected_ms
 
 
+def test_telegram_chat_target_parsing():
+    from backend.notifier import NotificationHandler
+
+    # Standard chat ID
+    target, topic, err = NotificationHandler._parse_telegram_chat_target("123456789")
+    assert target == "123456789"
+    assert topic is None
+    assert err is None
+
+    # Negative chat ID (supergroup/channel)
+    target, topic, err = NotificationHandler._parse_telegram_chat_target("-1001234567890")
+    assert target == "-1001234567890"
+    assert topic is None
+    assert err is None
+
+    # Forum topic syntax: chat_id_topic_id
+    target, topic, err = NotificationHandler._parse_telegram_chat_target("-1001234567890_42")
+    assert target == "-1001234567890"
+    assert topic == 42
+    assert err is None
+
+    # Invalid topic (non-positive)
+    target, topic, err = NotificationHandler._parse_telegram_chat_target("-1001234567890_0")
+    assert err is not None
+
+    # Username with underscore
+    target, topic, err = NotificationHandler._parse_telegram_chat_target("@my_super_channel")
+    assert target == "@my_super_channel"
+    assert topic is None
+    assert err is None
+
+
 
 
