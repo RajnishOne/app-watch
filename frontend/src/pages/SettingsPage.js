@@ -340,7 +340,7 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
                     placeholder="# v{version}"
                     className="form-input"
                   />
-                  <span className="form-hint">Format for version header. Use {'{version}'} as placeholder. Examples: "# v{'{version}'}", "Version {'{version}'}", "**v{'{version}'}**"</span>
+                  <span className="form-hint">Available placeholders: {'{app_name}'}, {'{platform}'}, {'{version}'}. Examples: "# v{'{version}'}", "Version {'{version}'}", "**v{'{version}'}**"</span>
                 </div>
 
                 <div className="form-group">

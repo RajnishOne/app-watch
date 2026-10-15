@@ -42,17 +42,39 @@ class DiscordFormatter:
                     
         self.section_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in headers]
     
-    def _get_version_header(self, version):
-        """Get formatted version header, handling 'Varies with device' fallback without prepended 'v'"""
+    def _get_version_header(self, version, app_name=None, platform=None):
+        """Render the version header with app context and a safe fallback."""
         if not self.include_version_header:
             return ""
-        version_str = str(version).strip()
-        if version_str.lower() == 'varies with device':
-            template = self.version_header_template.replace('v{version}', '{version}')
-            return template.format(version=version_str)
-        return self.version_header_template.format(version=version_str)
 
-    def format_release_notes(self, version, release_notes):
+        version_str = str(version).strip()
+        app_name_str = str(app_name or '').strip()
+        platform_str = str(platform or '').strip()
+        platform_label = {
+            'ios': 'iOS',
+            'android': 'Android',
+        }.get(platform_str.lower(), platform_str)
+
+        template = self.version_header_template
+        if version_str.lower() == 'varies with device':
+            template = template.replace('v{version}', '{version}')
+
+        try:
+            return template.format(
+                version=version_str,
+                app_name=app_name_str,
+                platform=platform_label,
+            )
+        except (KeyError, ValueError) as e:
+            logger.warning(
+                "Invalid version header template %r: %s. Falling back to the default.",
+                self.version_header_template,
+                e,
+            )
+            prefix = '' if version_str.lower() == 'varies with device' else 'v'
+            return f"# {prefix}{version_str}"
+
+    def format_release_notes(self, version, release_notes, app_name=None, platform=None):
         """
         Format release notes for Discord.
         
@@ -61,7 +83,7 @@ class DiscordFormatter:
         - Case B: Structured sections
         """
         if not release_notes:
-            version_header = self._get_version_header(version)
+            version_header = self._get_version_header(version, app_name, platform)
             if version_header:
                 return f"{version_header}\n\n{self.no_release_notes_text}"
             return self.no_release_notes_text
@@ -74,10 +96,10 @@ class DiscordFormatter:
         
         if sections:
             # Case B: Structured sections
-            return self._format_structured(version, sections)
+            return self._format_structured(version, sections, app_name, platform)
         else:
             # Case A: Generic release text
-            return self._format_generic(version, cleaned)
+            return self._format_generic(version, cleaned, app_name, platform)
     
     def _strip_app_store_markdown(self, text):
         """Strip App Store markdown (**, _, *)"""
@@ -154,12 +176,12 @@ class DiscordFormatter:
         else:
             return header_clean
     
-    def _format_structured(self, version, sections):
+    def _format_structured(self, version, sections, app_name=None, platform=None):
         """Format structured sections (Case B)"""
         parts = []
         
         # Add version header if enabled
-        version_header = self._get_version_header(version)
+        version_header = self._get_version_header(version, app_name, platform)
         if version_header:
             parts.append(version_header)
             parts.append("")
@@ -192,13 +214,13 @@ class DiscordFormatter:
         
         return '\n'.join(parts).strip()
     
-    def _format_generic(self, version, text):
+    def _format_generic(self, version, text, app_name=None, platform=None):
         """Format generic release text (Case A) - simple bullet list"""
         lines = text.split('\n')
         parts = []
         
         # Add version header if enabled
-        version_header = self._get_version_header(version)
+        version_header = self._get_version_header(version, app_name, platform)
         if version_header:
             parts.append(version_header)
             parts.append("")

@@ -261,6 +261,7 @@ class AppStoreMonitor:
         app_store_id = app['app_store_id']
         app_store_country = self._normalize_country(app.get('app_store_country', 'us'))
         platform = app.get('platform', 'ios')
+        app_name = app.get('name', 'App')
         
         # Get notification destinations - support both new format and legacy webhook_url
         notification_destinations = app.get('notification_destinations', [])
@@ -290,7 +291,12 @@ class AppStoreMonitor:
                                 'current_version': current_version,
                                 'last_version': last_version,
                                 'checked_at': last_check_str,
-                                'formatted_preview': self.formatter.format_release_notes(current_version or '', '')
+                                'formatted_preview': self.formatter.format_release_notes(
+                                    current_version or '',
+                                    '',
+                                    app_name=app_name,
+                                    platform=platform,
+                                )
                             }
                     except Exception as e:
                         logger.debug(f"Error parsing last check time: {e}")
@@ -356,7 +362,12 @@ class AppStoreMonitor:
                         'current_version': current_version,
                         'last_version': last_version,
                         'checked_at': datetime.now().isoformat(),
-                        'formatted_preview': self.formatter.format_release_notes(current_version, release_notes)
+                        'formatted_preview': self.formatter.format_release_notes(
+                            current_version,
+                            release_notes,
+                            app_name=app_name,
+                            platform=platform,
+                        )
                     }
                 
                 # New version detected - check if auto-post is enabled
@@ -371,13 +382,22 @@ class AppStoreMonitor:
                         'current_version': current_version,
                         'last_version': last_version,
                         'checked_at': datetime.now().isoformat(),
-                        'formatted_preview': self.formatter.format_release_notes(current_version, release_notes),
+                        'formatted_preview': self.formatter.format_release_notes(
+                            current_version,
+                            release_notes,
+                            app_name=app_name,
+                            platform=platform,
+                        ),
                         'auto_post_disabled': True
                     }
                 
                 # Auto-post is enabled - post to all configured destinations
-                formatted_notes = self.formatter.format_release_notes(current_version, release_notes)
-                app_name = app.get('name', 'App')
+                formatted_notes = self.formatter.format_release_notes(
+                    current_version,
+                    release_notes,
+                    app_name=app_name,
+                    platform=platform,
+                )
                 
                 # Post to all notification destinations
                 success_count = 0
@@ -468,6 +488,7 @@ class AppStoreMonitor:
         app_store_id = app['app_store_id']
         app_store_country = self._normalize_country(app.get('app_store_country', 'us'))
         platform = app.get('platform', 'ios')
+        app_name = app.get('name', 'App')
         
         # Get notification destinations - support both new format and legacy webhook_url
         notification_destinations = app.get('notification_destinations', [])
@@ -503,8 +524,12 @@ class AppStoreMonitor:
                 self.storage.save_last_updated_time(app_id, app_info['updated'])
             
             # Format and post to all destinations
-            formatted_notes = self.formatter.format_release_notes(current_version, release_notes)
-            app_name = app.get('name', 'App')
+            formatted_notes = self.formatter.format_release_notes(
+                current_version,
+                release_notes,
+                app_name=app_name,
+                platform=platform,
+            )
             
             success_count = 0
             error_messages = []
