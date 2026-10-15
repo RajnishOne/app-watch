@@ -1,9 +1,106 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icons } from './Icons';
 
 export const FAVICON_PATH = '/icon-192.png';
 
+export function DonateModal({ isOpen, onClose }) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="donate-modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="donate-modal-title"
+    >
+      <div className="donate-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="donate-modal-header">
+          <div className="donate-modal-header-left">
+            <div className="donate-modal-heart-icon">
+              <Icons.Heart />
+            </div>
+            <div>
+              <h3 id="donate-modal-title" className="donate-modal-title">Support App Watch</h3>
+              <p className="donate-modal-subtitle">Open-source iOS Update Monitor</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="donate-modal-close-btn"
+            onClick={onClose}
+            aria-label="Close donation modal"
+          >
+            <Icons.Close />
+          </button>
+        </div>
+
+        <div className="donate-modal-body">
+          <p className="donate-modal-text">
+            App Watch is free and open-source. If it helps you track iOS app updates, consider supporting its development through any of the options below!
+          </p>
+
+          <div className="donate-modal-options">
+            <a
+              href="https://ko-fi.com/rajnishone"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="donate-modal-card kofi-card"
+            >
+              <div className="donate-modal-card-icon kofi-icon">
+                <Icons.Kofi />
+              </div>
+              <div className="donate-modal-card-content">
+                <div className="donate-modal-card-title">Support on Ko-fi</div>
+                <div className="donate-modal-card-desc">Buy a coffee or tip via Card / PayPal</div>
+              </div>
+              <div className="donate-modal-card-arrow">
+                <Icons.ExternalLink />
+              </div>
+            </a>
+
+            <a
+              href="https://github.com/sponsors/rajnishone"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="donate-modal-card github-card"
+            >
+              <div className="donate-modal-card-icon github-icon">
+                <Icons.GitHub />
+              </div>
+              <div className="donate-modal-card-content">
+                <div className="donate-modal-card-title">GitHub Sponsors</div>
+                <div className="donate-modal-card-desc">One-time or monthly sponsorship</div>
+              </div>
+              <div className="donate-modal-card-arrow">
+                <Icons.ExternalLink />
+              </div>
+            </a>
+          </div>
+
+          <div className="donate-modal-footer-note">
+            Thank you for supporting open source! ❤️
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar({ currentPage, onNavigate, appsCount, sidebarOpen, onCloseSidebar }) {
+  const [donateOpen, setDonateOpen] = useState(false);
+
   const navItems = [
     { id: 'dashboard', label: 'Apps', icon: Icons.Apps, badge: appsCount },
     { id: 'add-app', label: 'Add App', icon: Icons.Add },
@@ -50,7 +147,33 @@ export function Sidebar({ currentPage, onNavigate, appsCount, sidebarOpen, onClo
             ))}
           </div>
         </nav>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-footer-links">
+            <a
+              href="https://github.com/RajnishOne/app-watch"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="sidebar-footer-btn"
+              title="View App Watch on GitHub"
+            >
+              <Icons.GitHub />
+              <span>GitHub</span>
+            </a>
+            <button
+              type="button"
+              className="sidebar-footer-btn donate-btn"
+              onClick={() => setDonateOpen(true)}
+              title="Support App Watch development"
+            >
+              <Icons.Heart />
+              <span>Donate</span>
+            </button>
+          </div>
+        </div>
       </aside>
+
+      <DonateModal isOpen={donateOpen} onClose={() => setDonateOpen(false)} />
     </>
   );
 }

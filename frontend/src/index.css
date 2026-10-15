@@ -226,65 +226,299 @@ body {
 
 
 .sidebar-footer {
-  padding: 16px;
+  padding: 12px 14px;
   border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
-.sidebar-user {
+.sidebar-footer-links {
   display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.sidebar-footer-btn {
+  flex: 1;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  text-decoration: none;
   cursor: pointer;
-  transition: background 0.2s;
+  font-family: inherit;
+  line-height: 1.2;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
 }
 
-.sidebar-user:hover {
+.sidebar-footer-btn:hover {
   background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+  transform: translateY(-1px);
 }
 
-.sidebar-user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--accent-primary);
+.sidebar-footer-btn:active {
+  transform: translateY(0);
+}
+
+.sidebar-footer-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.sidebar-footer-btn.donate-btn svg {
+  color: #ff6584;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s;
+}
+
+.sidebar-footer-btn.donate-btn:hover {
+  background: rgba(255, 101, 132, 0.08);
+  border-color: rgba(255, 101, 132, 0.35);
+  color: #ff6584;
+}
+
+.sidebar-footer-btn.donate-btn:hover svg {
+  transform: scale(1.15);
+}
+
+/* Donate Modal */
+.donate-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  color: var(--bg-primary);
+  z-index: 1050;
+  padding: 16px;
+  animation: modalFadeIn 0.2s ease-out;
 }
 
-.sidebar-user-info {
-  flex: 1;
+.donate-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
   overflow: hidden;
+  animation: modalSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.sidebar-user-name {
-  font-size: 14px;
-  font-weight: 600;
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.donate-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.donate-modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.donate-modal-heart-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255, 101, 132, 0.12);
+  color: #ff6584;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.donate-modal-heart-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.donate-modal-title {
+  font-size: 16px;
+  font-weight: 700;
   color: var(--text-primary);
+  line-height: 1.2;
 }
 
-.sidebar-user-role {
+.donate-modal-subtitle {
   font-size: 12px;
   color: var(--text-muted);
+  margin-top: 2px;
 }
 
-.logout-btn {
-  background: none;
+.donate-modal-close-btn {
+  background: transparent;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 8px;
+  padding: 6px;
   border-radius: 6px;
-  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
 }
 
-.logout-btn:hover {
+.donate-modal-close-btn:hover {
   background: var(--bg-hover);
-  color: var(--danger);
+  color: var(--text-primary);
+}
+
+.donate-modal-close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.donate-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.donate-modal-text {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.donate-modal-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.donate-modal-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: inherit;
+}
+
+.donate-modal-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.donate-modal-card.kofi-card:hover {
+  border-color: #ff5e5b;
+  background: rgba(255, 94, 91, 0.08);
+}
+
+.donate-modal-card.github-card:hover {
+  border-color: #ea4aaa;
+  background: rgba(234, 74, 170, 0.08);
+}
+
+.donate-modal-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.donate-modal-card:hover .donate-modal-card-icon {
+  transform: scale(1.08);
+}
+
+.donate-modal-card-icon.kofi-icon {
+  background: rgba(255, 94, 91, 0.15);
+  color: #ff5e5b;
+}
+
+.donate-modal-card-icon.github-icon {
+  background: rgba(234, 74, 170, 0.15);
+  color: #ea4aaa;
+}
+
+.donate-modal-card-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.donate-modal-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.donate-modal-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.donate-modal-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.donate-modal-card-arrow {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s, color 0.2s;
+}
+
+.donate-modal-card-arrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+.donate-modal-card:hover .donate-modal-card-arrow {
+  color: var(--text-primary);
+  transform: translate(2px, -2px);
+}
+
+.donate-modal-footer-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding-top: 4px;
 }
 
 /* Mobile Sidebar Toggle */
