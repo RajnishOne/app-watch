@@ -1,10 +1,10 @@
 # App Watch
 
-A self-hosted tool to monitor iOS App Store apps for new releases and automatically notify you via multiple platforms (Discord, Slack, Telegram, Microsoft Teams, Email, or custom webhooks). Features a web interface for easy management of multiple apps.
+A self-hosted tool to monitor iOS App Store and Google Play Store apps for new releases and automatically notify you via multiple platforms (Discord, Slack, Telegram, Microsoft Teams, Email, or custom webhooks). Features a web interface for easy management of multiple apps.
 
 ## Features
 
-- 🍎 Monitor multiple iOS App Store apps simultaneously
+- 🍎🤖 Monitor multiple iOS and Android apps simultaneously
 - 🔔 Automatic notifications when new versions are detected (Discord, Slack, Telegram, Teams, Email, or custom webhooks)
 - 📝 Formats release notes for better readability across platforms
 - 🖥️ Web-based interface for configuration and management
@@ -117,28 +117,23 @@ Before adding apps, you need to configure at least one notification destination.
 - Any HTTP/HTTPS endpoint that accepts POST requests
 - Optionally customize the JSON payload template
 
-### Step 5: Find App Store ID
+### Step 5: Get App Store or Google Play URL
 
-1. Go to [apps.apple.com](https://apps.apple.com) in your browser
-2. Search for the app you want to monitor
-3. Open the app's page
-4. Look at the URL - it will look like: `https://apps.apple.com/app/id123456789`
-5. Copy the number after `/id` (that's your App Store ID)
+1. For **iOS**: Search for the app on [apps.apple.com](https://apps.apple.com) and copy the URL (e.g., `https://apps.apple.com/us/app/example/id123456789`)
+2. For **Android**: Search for the app on [play.google.com](https://play.google.com/store/apps) and copy the URL (e.g., `https://play.google.com/store/apps/details?id=com.example.app`)
 
 ### Step 6: Add Your First App
 
 1. In the web interface (http://localhost:8192), click **"Add App"**
-2. Fill in:
-   - **App Name**: Any name you want (e.g., "My App")
-   - **App Store ID**: The number you found in Step 5
-   - **App Store Country**: 2-letter store code (default `us`, e.g., `gb`, `in`, `jp`)
-   - **Notification Destination**: Select your preferred platform (Discord, Slack, Telegram, Teams, Email, or Generic)
-   - **Configure the destination**: Enter the required information based on your selected platform:
-     - **Discord/Slack/Teams/Generic**: Paste the webhook URL
-     - **Telegram**: Enter bot token (or use from Settings) and chat ID
-     - **Email**: Enter recipient email and SMTP settings (or use from Settings)
-   - **Check Interval** (optional): Leave empty for default (12 hours), or use `6h`, `1d`, etc.
-3. Click **"Save"**
+2. Paste the **App Store or Google Play URL** into the URL field:
+   - The platform, store ID / package name, and country will automatically be detected and filled!
+3. Enter or verify the **App Name**
+4. Configure your **Notification Destination**: Select your preferred platform (Discord, Slack, Telegram, Teams, Email, or Generic)
+   - **Discord/Slack/Teams/Generic**: Paste the webhook URL
+   - **Telegram**: Enter bot token (or use from Settings) and chat ID
+   - **Email**: Enter recipient email and SMTP settings (or use from Settings)
+5. **Check Interval** (optional): Leave empty for default (12 hours), or use `6h`, `1d`, etc.
+6. Click **"Save"**
 
 **Note:** You can add multiple notification destinations per app. Just add another destination in the same form.
 
@@ -164,7 +159,7 @@ You can add more apps by clicking **"Add App"** again. Each app can use differen
 
 ## How It Works
 
-The application periodically checks the App Store API for new versions of your configured apps. When a new version is detected, it automatically formats the release notes and sends notifications to all configured destinations (Discord, Slack, Telegram, Teams, Email, or custom webhooks).
+The application periodically checks the App Store and Google Play APIs for new versions of your configured apps. When a new version is detected, it automatically formats the release notes and sends notifications to all configured destinations (Discord, Slack, Telegram, Teams, Email, or custom webhooks).
 
 - **Default check interval**: Every 12 hours (configurable per app)
 - **Custom intervals**: Set different check frequencies per app (e.g., `6h` for 6 hours, `1d` for daily)
@@ -176,7 +171,7 @@ The application periodically checks the App Store API for new versions of your c
 
 ## Release Notes Formatting
 
-The application automatically formats release notes from the App Store for better readability across all platforms. It detects structured sections and formats them appropriately for each notification type (Discord, Slack, Telegram, Teams, Email, etc.).
+The application automatically formats release notes from the App Store and Google Play for better readability across all platforms. It detects structured sections and formats them appropriately for each notification type (Discord, Slack, Telegram, Teams, Email, etc.).
 
 ### Example: Structured Release Notes
 
@@ -530,8 +525,9 @@ Common logging driver options:
 
 Each app can be configured individually through the web interface:
 
-- **App Name**: Display name for easy identification
-- **App Store ID**: Unique identifier from the App Store URL
+- **App URL**: Direct Apple App Store or Google Play Store URL
+- **App Name**: Display name for easy identification (automatically fetched from the store)
+- **Store ID / Package ID**: Unique numeric ID from App Store or package identifier from Google Play
 - **Notification Destinations**: One or more notification channels (Discord, Slack, Telegram, Teams, Email, or Generic webhook)
   - Each destination can be configured with its specific settings
   - You can add multiple destinations of the same or different types
@@ -610,18 +606,19 @@ Configure reusable settings in the Settings page:
 
 ### App Not Detecting Updates
 
-**App Store ID incorrect:**
-- Double-check the App Store ID contains only numbers
-- Verify the ID by visiting: `https://apps.apple.com/app/id<YOUR_ID>`
-- The ID should be in the URL format: `apps.apple.com/app/id123456789`
+**Store ID or Package ID incorrect:**
+- For iOS, double-check that the App Store ID contains only numbers
+- For Android, verify the package name (e.g., `com.example.app`)
+- Use the direct store URL in the web UI to auto-populate the correct ID
+- Verify the app exists in the selected store country/region
 
 **Check interval too long:**
 - Reduce the check interval to test more frequently (e.g., `30m` for testing)
 - Use the "Check Now" button to trigger an immediate check
 - Check the "Last Check" timestamp in the web interface
 
-**App Store API issues:**
-- The App Store API may be slow or temporarily unavailable
+**Store API issues:**
+- The App Store or Google Play API may be slow or temporarily unavailable
 - Wait a few minutes and try the "Check Now" button again
 - Check container logs for API errors: `docker logs app-watch`
 
@@ -652,10 +649,10 @@ Configure reusable settings in the Settings page:
 - For generic webhooks, ensure the URL starts with `http://` or `https://`
 - Verify the endpoint accepts POST requests with JSON payload
 
-**"App Store ID must be a number"**
-- Only use the numeric ID from the App Store URL
+**"App Store ID must be a number" (iOS)**
+- iOS App Store IDs must only contain numbers
 - Example: For `https://apps.apple.com/app/id123456789`, use `123456789`
-- Remove any non-numeric characters
+- Android apps use package names like `com.example.app` instead
 
 **"Invalid interval format"**
 - Use the format: `<number><unit>` where unit is `m` (minutes), `h` (hours), or `d` (days)
