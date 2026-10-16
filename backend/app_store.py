@@ -57,6 +57,43 @@ class AppStoreMonitor:
     ITUNES_LOOKUP_URL = "https://itunes.apple.com/lookup"
     MAX_RETRIES = 3
     RETRY_DELAY = 2  # seconds
+    COUNTRY_LANGUAGE_MAP = {
+        'au': 'en',
+        'br': 'pt',
+        'ca': 'en',
+        'cn': 'zh',
+        'cz': 'cs',
+        'de': 'de',
+        'dk': 'da',
+        'es': 'es',
+        'fi': 'fi',
+        'fr': 'fr',
+        'gb': 'en',
+        'gr': 'el',
+        'hu': 'hu',
+        'id': 'id',
+        'ie': 'en',
+        'il': 'he',
+        'in': 'en',
+        'it': 'it',
+        'jp': 'ja',
+        'kr': 'ko',
+        'nl': 'nl',
+        'no': 'no',
+        'nz': 'en',
+        'pl': 'pl',
+        'pt': 'pt',
+        'ro': 'ro',
+        'ru': 'ru',
+        'se': 'sv',
+        'sk': 'sk',
+        'th': 'th',
+        'tr': 'tr',
+        'tw': 'zh',
+        'ua': 'uk',
+        'us': 'en',
+        'vn': 'vi',
+    }
     
     def __init__(self, storage, formatter, settings=None):
         self.storage = storage
@@ -82,6 +119,10 @@ class AppStoreMonitor:
         if len(code) != 2 or not code.isalpha():
             return "us"
         return code
+
+    def _language_for_country(self, country_code):
+        """Choose the storefront language used for localized store metadata."""
+        return self.COUNTRY_LANGUAGE_MAP.get(country_code, 'en')
 
     def fetch_app_info(self, app_store_id, country="us"):
         """Fetch app information from iTunes Lookup API with retry logic"""
@@ -154,6 +195,7 @@ class AppStoreMonitor:
     def fetch_android_app_info(self, package_id, country="us"):
         """Fetch app information from Google Play Store scraper with retry logic"""
         country_code = self._normalize_country(country)
+        language_code = self._language_for_country(country_code)
         
         last_exception = None
         for attempt in range(self.MAX_RETRIES + 1):
@@ -163,7 +205,7 @@ class AppStoreMonitor:
                     
                 result = play_app(
                     package_id,
-                    lang='en',
+                    lang=language_code,
                     country=country_code
                 )
                 
@@ -179,6 +221,8 @@ class AppStoreMonitor:
                 # This fixes the issue where google-play-scraper returns None/empty for recentChanges and updated.
                 if not recent_changes or not updated or version == 'Varies with device':
                     try:
+                        # Keep the fallback in English: its headings and date parser
+                        # expect English even when the primary metadata is localized.
                         url = (
                             f"https://play.google.com/store/apps/details"
                             f"?id={package_id}&hl=en&gl={country_code}&_={time.time_ns()}"
