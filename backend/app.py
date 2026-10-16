@@ -460,13 +460,15 @@ def setup_scheduler():
 
 # Authentication endpoints (public)
 @app.route('/api/auth/status', methods=['GET'])
+@require_auth(storage)
 def auth_status():
-    """Return API key for settings; user login is not used."""
+    """Return API key and Basic Auth status for settings."""
     auth = storage.get_auth()
+    basic_auth_enabled = bool(os.getenv('BASIC_AUTH_USERNAME') or os.getenv('BASIC_AUTH_PASSWORD'))
     return jsonify({
-        'enabled': False,
+        'enabled': basic_auth_enabled,
         'configured': True,
-        'auth_type': auth.get('auth_type', 'forms'),
+        'auth_type': 'basic' if basic_auth_enabled else auth.get('auth_type', 'forms'),
         'bypass_local_networks': False,
         'api_key': auth.get('api_key', ''),
     })
@@ -495,6 +497,7 @@ def health():
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
+@require_auth(storage)
 def serve_frontend(path):
     """Serve frontend - handle SPA routing"""
     # Don't handle API routes here - they're defined above

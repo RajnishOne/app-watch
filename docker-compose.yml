@@ -10,6 +10,8 @@ services:
       - "8192:8192"
     environment:
       - GUNICORN_WORKERS=1
+      - BASIC_AUTH_USERNAME=${BASIC_AUTH_USERNAME:-}
+      - BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD:-}
     volumes:
       - ./data:/data
     healthcheck:
