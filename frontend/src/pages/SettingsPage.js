@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ACCENT_PRESETS } from '../theme';
 import { Icons } from '../components/Icons';
+import { NotificationProfileEditor } from '../components/NotificationProfileEditor';
 import {
   fetchAuthStatus,
   regenerateApiKeyRequest,
@@ -9,11 +10,25 @@ import {
 } from '../api';
 import { getHumanReadableError } from '../utils/errors';
 
+const createProfileId = () => {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `profile-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const createNotificationProfile = () => ({
+  id: createProfileId(),
+  name: '',
+  type: 'telegram',
+  bot_token: '',
+  chat_id: ''
+});
+
 export function SettingsPage({ onCancel, message, showMessage, section = 'general', onNavigateSection, theme, onThemeChange, accent, onAccentChange }) {
   const [settings, setSettings] = useState({
     default_interval: '12h',
     monitoring_enabled_by_default: true,
     auto_post_on_update: false,
+    notification_profiles: [],
     telegram_bot_token: '',
     smtp_host: '',
     smtp_port: '587',
@@ -45,6 +60,7 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
   const settingsSections = [
     { id: 'general', label: 'General' },
     { id: 'webhook', label: 'Webhook' },
+    { id: 'profiles', label: 'Notification Profiles' },
     { id: 'message-format', label: 'Message Format' },
     { id: 'security', label: 'Security' },
     { id: 'appearance', label: 'Appearance' },
@@ -63,7 +79,10 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
     try {
       setLoading(true);
       const data = await fetchSettings();
-      setSettings(data);
+      setSettings({
+        ...data,
+        notification_profiles: Array.isArray(data.notification_profiles) ? data.notification_profiles : []
+      });
     } catch (error) {
       showMessage(getHumanReadableError(error.message || 'Failed to load settings'), 'error');
     } finally {
@@ -101,6 +120,38 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
     }
   };
 
+  const handleProfileChange = (index, field, value) => {
+    setSettings(prev => {
+      const profiles = [...(prev.notification_profiles || [])];
+      if (field === 'type') {
+        profiles[index] = { id: profiles[index].id, name: profiles[index].name, type: value };
+      } else {
+        profiles[index] = { ...profiles[index], [field]: value };
+      }
+      return { ...prev, notification_profiles: profiles };
+    });
+    setErrors(prev => {
+      const next = { ...prev };
+      delete next[`profile_${index}_${field}`];
+      return next;
+    });
+  };
+
+  const addNotificationProfile = () => {
+    setSettings(prev => ({
+      ...prev,
+      notification_profiles: [...(prev.notification_profiles || []), createNotificationProfile()]
+    }));
+  };
+
+  const removeNotificationProfile = (index) => {
+    if (!window.confirm('Remove this profile? Apps using it must be assigned another destination.')) return;
+    setSettings(prev => ({
+      ...prev,
+      notification_profiles: (prev.notification_profiles || []).filter((_, itemIndex) => itemIndex !== index)
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -108,6 +159,37 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
     if (settings.default_interval && !/^\d+[hmsd]$/i.test(settings.default_interval.trim())) {
       newErrors.default_interval = 'Invalid interval format. Use: 6h, 30m, 1d';
     }
+
+    const profileNames = new Set();
+    (settings.notification_profiles || []).forEach((profile, index) => {
+      const name = String(profile.name || '').trim();
+      if (!name) newErrors[`profile_${index}_name`] = 'Profile name is required';
+      if (name && profileNames.has(name.toLowerCase())) newErrors[`profile_${index}_name`] = 'Profile name must be unique';
+      profileNames.add(name.toLowerCase());
+      if (!profile.type) newErrors[`profile_${index}_type`] = 'Destination type is required';
+      if (['discord', 'slack', 'teams', 'generic'].includes(profile.type) && !String(profile.webhook_url || '').trim()) {
+        newErrors[`profile_${index}_webhook_url`] = 'Webhook URL is required';
+      }
+      if (profile.type === 'telegram') {
+        if (!String(profile.bot_token || '').trim() && !String(settings.telegram_bot_token || '').trim()) {
+          newErrors[`profile_${index}_bot_token`] = 'Bot token is required';
+        }
+        if (!String(profile.chat_id || '').trim()) newErrors[`profile_${index}_chat_id`] = 'Chat ID is required';
+      }
+      if (profile.type === 'email') {
+        if (!String(profile.email || '').trim()) newErrors[`profile_${index}_email`] = 'Recipient email is required';
+        if (!String(profile.smtp_host || '').trim() && !String(settings.smtp_host || '').trim()) {
+          newErrors[`profile_${index}_smtp_host`] = 'SMTP host is required';
+        }
+      }
+      if (profile.type === 'generic' && String(profile.payload_template || '').trim()) {
+        try {
+          JSON.parse(profile.payload_template);
+        } catch (error) {
+          newErrors[`profile_${index}_payload_template`] = 'Payload template must be valid JSON';
+        }
+      }
+    });
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -484,6 +566,35 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
                 </div>
               </div>
             </div>
+        );
+      case 'profiles':
+        return (
+          <div className="settings-section">
+            <div className="settings-section-header">
+              <h3 className="settings-section-title">Notification Profiles</h3>
+              <p className="settings-section-description">Save credentials once, then select a profile when adding or editing an app</p>
+            </div>
+            <div className="settings-section-body">
+              {(settings.notification_profiles || []).length === 0 && (
+                <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>No profiles yet. Create one to reuse a Telegram chat, webhook, or email destination across apps.</p>
+              )}
+              {(settings.notification_profiles || []).map((profile, index) => (
+                <NotificationProfileEditor
+                  key={profile.id}
+                  profile={profile}
+                  index={index}
+                  onChange={handleProfileChange}
+                  onRemove={removeNotificationProfile}
+                  errors={errors}
+                  globalTelegramToken={settings.telegram_bot_token}
+                  globalSmtpHost={settings.smtp_host}
+                />
+              ))}
+              <button type="button" className="btn btn-secondary" onClick={addNotificationProfile}>
+                Add Profile
+              </button>
+            </div>
+          </div>
         );
       case 'security':
         return (

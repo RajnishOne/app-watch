@@ -1,7 +1,17 @@
 from flask import Blueprint, jsonify, request
+from backend.notification_profiles import validate_notification_profiles
 
 
-def create_settings_blueprint(storage, require_auth, parse_interval, setup_scheduler, app_version, reload_monitor, logger):
+def create_settings_blueprint(
+    storage,
+    require_auth,
+    parse_interval,
+    setup_scheduler,
+    app_version,
+    reload_monitor,
+    validate_notification_destination,
+    logger,
+):
     bp = Blueprint("settings_api", __name__)
     auth_required = require_auth(storage)
 
@@ -34,6 +44,14 @@ def create_settings_blueprint(storage, require_auth, parse_interval, setup_sched
         try:
             current_settings = storage.get_settings()
             current_settings.update(data)
+            is_valid, error = validate_notification_profiles(
+                current_settings.get("notification_profiles", []),
+                current_settings,
+                validate_notification_destination,
+            )
+            if not is_valid:
+                return jsonify({"error": error}), 400
+
             storage.save_settings(current_settings)
 
             if "default_interval" in data:

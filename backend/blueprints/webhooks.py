@@ -1,5 +1,6 @@
 import requests
 from flask import Blueprint, jsonify, request
+from backend.notification_profiles import resolve_notification_destination
 
 
 def send_custom_message_to_webhook(destination, message, webhook_type, logger):
@@ -80,6 +81,7 @@ def create_webhooks_blueprint(storage, require_auth, load_apps, logger):
     def list_webhooks():
         try:
             apps = load_apps()
+            settings = storage.get_settings()
             webhooks = []
 
             for app in apps:
@@ -89,6 +91,10 @@ def create_webhooks_blueprint(storage, require_auth, load_apps, logger):
                     notification_destinations = [{"type": "discord", "webhook_url": app["webhook_url"]}]
 
                 for dest in notification_destinations:
+                    dest, resolve_error = resolve_notification_destination(dest, settings)
+                    if resolve_error:
+                        logger.warning("Skipping unresolved notification destination: %s", resolve_error)
+                        continue
                     dest_type = dest.get("type", "").lower()
                     webhook_url = dest.get("webhook_url", "").strip()
                     if dest_type in ["discord", "slack", "teams", "generic"] and webhook_url:
