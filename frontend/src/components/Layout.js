@@ -48,7 +48,7 @@ export function DonateModal({ isOpen, onClose }) {
 
         <div className="donate-modal-body">
           <p className="donate-modal-text">
-            App Watch is free and open-source. If it helps you track app updates, consider supporting its development through any of the options below!
+            App Watch is free and open source. Ongoing contributions support test device infrastructure, store crawler maintenance, and feature updates.
           </p>
 
           <div className="donate-modal-options">
@@ -63,7 +63,7 @@ export function DonateModal({ isOpen, onClose }) {
               </div>
               <div className="donate-modal-card-content">
                 <div className="donate-modal-card-title">Support on Ko-fi</div>
-                <div className="donate-modal-card-desc">Buy a coffee or tip via Card / PayPal</div>
+                <div className="donate-modal-card-desc">One-time contribution or monthly tip</div>
               </div>
               <div className="donate-modal-card-arrow">
                 <Icons.ExternalLink />
@@ -81,7 +81,7 @@ export function DonateModal({ isOpen, onClose }) {
               </div>
               <div className="donate-modal-card-content">
                 <div className="donate-modal-card-title">GitHub Sponsors</div>
-                <div className="donate-modal-card-desc">One-time or monthly sponsorship</div>
+                <div className="donate-modal-card-desc">Recurring or one-time developer sponsorship</div>
               </div>
               <div className="donate-modal-card-arrow">
                 <Icons.ExternalLink />
@@ -90,7 +90,7 @@ export function DonateModal({ isOpen, onClose }) {
           </div>
 
           <div className="donate-modal-footer-note">
-            Thank you for supporting open source! ❤️
+            Maintained under open source licensing
           </div>
         </div>
       </div>

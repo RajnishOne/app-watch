@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchHistoryQuery } from '../api';
+import { Icons } from '../components/Icons';
 
 export function ActivityPage({ onCancel, apps, message, showMessage }) {
   const [history, setHistory] = useState([]);
@@ -42,26 +43,17 @@ export function ActivityPage({ onCancel, apps, message, showMessage }) {
     loadHistory(newFilters);
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'success': return '✓';
-      case 'error': return '✗';
-      case 'warning': return '⚠';
-      default: return 'ℹ';
-    }
-  };
-
   const getEventTypeLabel = (eventType) => {
     const labels = {
       'check': 'Check',
       'post': 'Post',
-      'scheduler_run': 'Scheduler Run',
-      'app_created': 'App Created',
-      'app_updated': 'App Updated',
-      'app_deleted': 'App Deleted',
-      'app_enabled': 'App Enabled',
-      'app_disabled': 'App Disabled',
-      'settings_updated': 'Settings Updated'
+      'scheduler_run': 'Scheduler run',
+      'app_created': 'App created',
+      'app_updated': 'App updated',
+      'app_deleted': 'App deleted',
+      'app_enabled': 'App enabled',
+      'app_disabled': 'App disabled',
+      'settings_updated': 'Settings updated'
     };
     return labels[eventType] || eventType;
   };
@@ -83,26 +75,26 @@ export function ActivityPage({ onCancel, apps, message, showMessage }) {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Activity</h1>
-          <p className="page-subtitle">View app monitoring history and events</p>
+          <p className="page-subtitle">Release checks and webhook delivery audit log</p>
         </div>
       </div>
 
       <div className="page-content">
         <div className="filters-bar">
           <div className="filter-group">
-            <label className="filter-label">Event Type</label>
+            <label className="filter-label">Event type</label>
             <select
               value={filters.event_type}
               onChange={(e) => handleFilterChange('event_type', e.target.value)}
               className="form-select"
             >
-              <option value="">All Events</option>
+              <option value="">All events</option>
               <option value="check">Check</option>
               <option value="post">Post</option>
-              <option value="scheduler_run">Scheduler Run</option>
-              <option value="app_created">App Created</option>
-              <option value="app_updated">App Updated</option>
-              <option value="app_deleted">App Deleted</option>
+              <option value="scheduler_run">Scheduler run</option>
+              <option value="app_created">App created</option>
+              <option value="app_updated">App updated</option>
+              <option value="app_deleted">App deleted</option>
             </select>
           </div>
 
@@ -113,7 +105,7 @@ export function ActivityPage({ onCancel, apps, message, showMessage }) {
               onChange={(e) => handleFilterChange('app_id', e.target.value)}
               className="form-select"
             >
-              <option value="">All Apps</option>
+              <option value="">All apps</option>
               {apps.map(app => (
                 <option key={app.id} value={app.id}>{app.name}</option>
               ))}
@@ -127,7 +119,7 @@ export function ActivityPage({ onCancel, apps, message, showMessage }) {
               onChange={(e) => handleFilterChange('status', e.target.value)}
               className="form-select"
             >
-              <option value="">All Status</option>
+              <option value="">All status</option>
               <option value="success">Success</option>
               <option value="error">Error</option>
               <option value="warning">Warning</option>
@@ -141,7 +133,7 @@ export function ActivityPage({ onCancel, apps, message, showMessage }) {
               type="text"
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              placeholder="Search messages..."
+              placeholder="Filter messages…"
               className="form-input"
             />
           </div>
@@ -150,13 +142,15 @@ export function ActivityPage({ onCancel, apps, message, showMessage }) {
         {loading ? (
           <div className="loading">
             <div className="loading-spinner"></div>
-            <span>Loading activity...</span>
+            <span>Loading activity…</span>
           </div>
         ) : filteredHistory.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">📋</div>
+            <div className="empty-state-icon">
+              <Icons.Activity />
+            </div>
             <h3>No activity found</h3>
-            <p>Activity history will appear here as you use the application</p>
+            <p>Activity events will appear here as store checks and webhooks execute</p>
           </div>
         ) : (
           <div className="card">
@@ -174,21 +168,22 @@ export function ActivityPage({ onCancel, apps, message, showMessage }) {
                 <tbody>
                   {filteredHistory.map((entry) => (
                     <tr key={entry.id}>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {new Date(entry.timestamp).toLocaleString()}
+                      <td className="font-mono text-muted text-nowrap">
+                        {new Date(entry.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' })}
                       </td>
                       <td>
-                        <span className="status-badge status-info">
+                        <span className="event-badge">
                           {getEventTypeLabel(entry.event_type)}
                         </span>
                       </td>
-                      <td>{entry.app_name || '-'}</td>
+                      <td className="font-medium">{entry.app_name || '—'}</td>
                       <td>
-                        <span className={`status-badge status-${entry.status}`}>
-                          {getStatusIcon(entry.status)} {entry.status}
+                        <span className={`status-pill status-${entry.status}`}>
+                          <span className="status-dot"></span>
+                          {entry.status}
                         </span>
                       </td>
-                      <td>{entry.message}</td>
+                      <td className="table-message-cell">{entry.message}</td>
                     </tr>
                   ))}
                 </tbody>

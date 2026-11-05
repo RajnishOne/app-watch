@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchHistoryQuery } from '../api';
+import { Icons } from '../components/Icons';
 
 export function SchedulerPage({ onCancel, apps, message, showMessage }) {
   const [history, setHistory] = useState([]);
@@ -15,7 +16,7 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
       setLoading(true);
       const params = new URLSearchParams();
       params.append('limit', '500');
-      params.append('event_type', 'scheduler_run'); // Only scheduler runs
+      params.append('event_type', 'scheduler_run');
       
       if (filterParams.app_id) params.append('app_id', filterParams.app_id);
       if (filterParams.status) params.append('status', filterParams.status);
@@ -41,15 +42,6 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
     loadHistory(newFilters);
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'success': return '✓';
-      case 'error': return '✗';
-      case 'warning': return '⚠';
-      default: return 'ℹ';
-    }
-  };
-
   const filteredHistory = history.filter(entry => {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
@@ -66,7 +58,7 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Scheduler</h1>
-          <p className="page-subtitle">View scheduled check runs and their status</p>
+          <p className="page-subtitle">Scheduled periodic checks and background job executions</p>
         </div>
       </div>
 
@@ -79,7 +71,7 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
               onChange={(e) => handleFilterChange('app_id', e.target.value)}
               className="form-select"
             >
-              <option value="">All Apps</option>
+              <option value="">All apps</option>
               {apps.map(app => (
                 <option key={app.id} value={app.id}>{app.name}</option>
               ))}
@@ -93,7 +85,7 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
               onChange={(e) => handleFilterChange('status', e.target.value)}
               className="form-select"
             >
-              <option value="">All Status</option>
+              <option value="">All status</option>
               <option value="success">Success</option>
               <option value="error">Error</option>
               <option value="warning">Warning</option>
@@ -107,7 +99,7 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
               type="text"
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              placeholder="Search messages..."
+              placeholder="Filter messages…"
               className="form-input"
             />
           </div>
@@ -116,13 +108,15 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
         {loading ? (
           <div className="loading">
             <div className="loading-spinner"></div>
-            <span>Loading scheduler history...</span>
+            <span>Loading scheduler history…</span>
           </div>
         ) : filteredHistory.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">⏰</div>
+            <div className="empty-state-icon">
+              <Icons.Clock />
+            </div>
             <h3>No scheduler runs found</h3>
-            <p>Scheduled check runs will appear here when the scheduler triggers app checks</p>
+            <p>Scheduled check runs will appear here as the background scheduler executes</p>
           </div>
         ) : (
           <div className="card">
@@ -140,18 +134,19 @@ export function SchedulerPage({ onCancel, apps, message, showMessage }) {
                 <tbody>
                   {filteredHistory.map((entry) => (
                     <tr key={entry.id}>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {new Date(entry.timestamp).toLocaleString()}
+                      <td className="font-mono text-muted text-nowrap">
+                        {new Date(entry.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' })}
                       </td>
-                      <td>{entry.app_name || '-'}</td>
+                      <td className="font-medium">{entry.app_name || '—'}</td>
                       <td>
-                        <span className={`status-badge status-${entry.status}`}>
-                          {getStatusIcon(entry.status)} {entry.status}
+                        <span className={`status-pill status-${entry.status}`}>
+                          <span className="status-dot"></span>
+                          {entry.status}
                         </span>
                       </td>
-                      <td>{entry.message}</td>
-                      <td>
-                        {entry.details?.interval || '-'}
+                      <td className="table-message-cell">{entry.message}</td>
+                      <td className="font-mono text-muted">
+                        {entry.details?.interval || '—'}
                       </td>
                     </tr>
                   ))}

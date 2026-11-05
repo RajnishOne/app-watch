@@ -23,24 +23,27 @@ export function DashboardPage({ apps, message, onAddApp, onEditApp, onDeleteApp,
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Apps</h1>
-          <p className="page-subtitle">Monitor your iOS and Android apps for new releases</p>
+          <p className="page-subtitle">Track release versions and configure update broadcasts</p>
         </div>
         <div className="page-header-right">
           <button className="btn btn-primary" onClick={onAddApp}>
-            <Icons.Add /> Add App
+            <Icons.Add />
+            <span>Add app</span>
           </button>
         </div>
       </div>
 
       <div className="page-content">
-
         {apps.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">📱</div>
+            <div className="empty-state-icon">
+              <Icons.Apps />
+            </div>
             <h3>No apps configured</h3>
-            <p>Add your first app to start monitoring for updates</p>
-            <button className="btn btn-primary btn-lg" onClick={onAddApp}>
-              <Icons.Add /> Add Your First App
+            <p>Add an iOS App Store or Google Play Store app to start tracking updates</p>
+            <button className="btn btn-primary" onClick={onAddApp}>
+              <Icons.Add />
+              <span>Add app</span>
             </button>
           </div>
         ) : (
@@ -76,7 +79,6 @@ export function AppCard({ app, notificationProfiles = [], onEdit, onDelete, onCh
       if (data.formatted_preview) {
         setPreview(data.formatted_preview);
       } else if (!data.success && data.error) {
-        // Silently handle errors in preview - don't show message, just log
         console.error('Error loading preview:', getHumanReadableError(data.error));
       }
     } catch (error) {
@@ -91,7 +93,7 @@ export function AppCard({ app, notificationProfiles = [], onEdit, onDelete, onCh
     const hasLegacyWebhook = app.webhook_url && app.webhook_url.trim();
     
     if (destinations.length === 0 && !hasLegacyWebhook) {
-      return <span style={{ color: 'var(--text-muted)' }}>Not configured</span>;
+      return <span className="text-muted">Not configured</span>;
     }
     
     if (destinations.length === 0 && hasLegacyWebhook) {
@@ -111,7 +113,7 @@ export function AppCard({ app, notificationProfiles = [], onEdit, onDelete, onCh
     });
     
     if (validDestinations.length === 0) {
-      return <span style={{ color: 'var(--text-muted)' }}>Not configured</span>;
+      return <span className="text-muted">Not configured</span>;
     }
     
     const counts = {};
@@ -134,85 +136,94 @@ export function AppCard({ app, notificationProfiles = [], onEdit, onDelete, onCh
     if (counts.generic) parts.push(`${counts.generic} Generic`);
     parts.push(...profileNames);
     
-    return parts.join(', ') || <span style={{ color: 'var(--text-muted)' }}>Not configured</span>;
+    return parts.join(', ') || <span className="text-muted">Not configured</span>;
   };
+
+  const isAndroid = app.platform === 'android';
 
   return (
     <div className="app-card">
       <div className="app-card-header">
         <img 
-          src={app.icon_url || (app.platform === 'android' ? '/androiddefault.png' : '/iosdefault.png')} 
-          alt={app.name}
+          src={app.icon_url || (isAndroid ? '/androiddefault.png' : '/iosdefault.png')} 
+          alt=""
           className="app-icon"
-          onError={(e) => { e.target.src = app.platform === 'android' ? '/androiddefault.png' : '/iosdefault.png'; }}
+          onError={(e) => { e.target.src = isAndroid ? '/androiddefault.png' : '/iosdefault.png'; }}
         />
         <div className="app-title-section">
-          <div className="app-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '14px', opacity: 0.8 }} title={app.platform === 'android' ? 'Android App' : 'iOS App'}>
-              {app.platform === 'android' ? '🤖' : '🍎'}
+          <div className="app-name">
+            <span className="app-platform-mark" title={isAndroid ? 'Android' : 'iOS'}>
+              {isAndroid ? <Icons.Android /> : <Icons.Apple />}
             </span>
-            <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <span className="app-name-text">
               {app.name}
             </span>
           </div>
-          <div className="app-store-id">
-            {app.platform === 'android' ? 'Package: ' : 'ID: '}{app.app_store_id}
+          <div className="app-store-id font-mono">
+            {isAndroid ? 'pkg:' : 'id:'}{app.app_store_id}
           </div>
         </div>
         <span className={`app-status-badge ${app.enabled ? 'enabled' : 'disabled'}`}>
-          {app.enabled ? 'Enabled' : 'Disabled'}
+          <span className="status-dot"></span>
+          {app.enabled ? 'Active' : 'Paused'}
         </span>
       </div>
 
       <div className="app-card-body">
         <div className="app-info-grid">
           <div className="app-info-item">
-            <span className="app-info-label">Current Version</span>
-            <span className="app-info-value">{app.current_version || 'Not checked'}</span>
+            <span className="app-info-label">Current version</span>
+            <span className="app-info-value font-mono">{app.current_version ? `v${app.current_version.replace(/^v/, '')}` : 'Not checked'}</span>
           </div>
           <div className="app-info-item">
-            <span className="app-info-label">Last Posted</span>
-            <span className="app-info-value">{app.last_posted_version || 'Never'}</span>
+            <span className="app-info-label">Last posted</span>
+            <span className="app-info-value font-mono">{app.last_posted_version ? `v${app.last_posted_version.replace(/^v/, '')}` : 'Never'}</span>
           </div>
           <div className="app-info-item">
-            <span className="app-info-label">Last Check</span>
-            <span className="app-info-value">
-              {app.last_check ? new Date(app.last_check).toLocaleString() : 'Never'}
+            <span className="app-info-label">Last check</span>
+            <span className="app-info-value font-mono">
+              {app.last_check ? new Date(app.last_check).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : 'Never'}
             </span>
           </div>
           <div className="app-info-item">
-            <span className="app-info-label">Check Interval</span>
-            <span className="app-info-value">{app.interval_override || 'Default (12h)'}</span>
+            <span className="app-info-label">Check interval</span>
+            <span className="app-info-value font-mono">{app.interval_override || 'Default (12h)'}</span>
           </div>
-          <div className="app-info-item" style={{ gridColumn: '1 / -1' }}>
+          <div className="app-info-item app-info-full">
             <span className="app-info-label">Notifications</span>
             <span className="app-info-value destinations">{getDestinationSummary()}</span>
           </div>
         </div>
 
         {preview && (
-          <div style={{ marginBottom: '16px' }}>
-            <div className="app-info-label" style={{ marginBottom: '8px' }}>Preview</div>
-            <div className="preview-box">{preview}</div>
+          <div className="preview-container">
+            <div className="app-info-label">Preview</div>
+            <pre className="preview-box font-mono">{preview}</pre>
           </div>
         )}
 
         <div className="app-card-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => onCheck(app.id)} disabled={checking || posting}>
-            {checking ? 'Checking...' : 'Check'}
-          </button>
-          <button className="btn btn-success btn-sm" onClick={() => onPost(app.id)} disabled={checking || posting}>
-            {posting ? 'Posting...' : 'Post'}
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={loadPreview} disabled={loadingPreview}>
-            {loadingPreview ? 'Loading...' : 'Preview'}
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => onEdit(app)} disabled={checking || posting}>
-            Edit
-          </button>
-          <button className="btn btn-danger btn-sm" onClick={() => onDelete(app.id)} disabled={checking || posting}>
-            Delete
-          </button>
+          <div className="app-card-actions-group">
+            <button className="btn btn-secondary btn-sm" onClick={() => onCheck(app.id)} disabled={checking || posting}>
+              <Icons.Refresh />
+              <span>{checking ? 'Checking…' : 'Check'}</span>
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => onPost(app.id)} disabled={checking || posting}>
+              <Icons.Send />
+              <span>{posting ? 'Posting…' : 'Post'}</span>
+            </button>
+          </div>
+          <div className="app-card-actions-group">
+            <button className="btn btn-secondary btn-sm" onClick={loadPreview} disabled={loadingPreview}>
+              <span>{loadingPreview ? 'Loading…' : 'Preview'}</span>
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => onEdit(app)} disabled={checking || posting}>
+              <span>Edit</span>
+            </button>
+            <button className="btn btn-subtle-danger btn-sm" onClick={() => onDelete(app.id)} disabled={checking || posting}>
+              <span>Delete</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

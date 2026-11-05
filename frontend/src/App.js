@@ -16,6 +16,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ActivityPage } from './pages/ActivityPage';
 import { SchedulerPage } from './pages/SchedulerPage';
 import { SendWebhookPage } from './pages/SendWebhookPage';
+import { Icons } from './components/Icons';
 
 function App() {
   const [apps, setApps] = useState([]);
@@ -361,14 +362,18 @@ function App() {
 function Toast({ message, onClose }) {
   if (!message) return null;
   
-  const icon = message.type === 'success' ? '✅' : message.type === 'error' ? '❌' : 'ℹ️';
+  const IconComponent = message.type === 'success' ? Icons.CheckCircle : message.type === 'error' ? Icons.XCircle : Icons.Info;
   
   return (
     <div className="toast-container">
-      <div className={`toast-message toast-${message.type}`}>
-        <span className="toast-icon">{icon}</span>
+      <div className={`toast-message toast-${message.type}`} role="alert">
+        <span className="toast-icon">
+          <IconComponent />
+        </span>
         <span className="toast-text">{message.text}</span>
-        <button className="toast-close" onClick={onClose}>&times;</button>
+        <button className="toast-close" onClick={onClose} aria-label="Close notification">
+          <Icons.Close />
+        </button>
       </div>
     </div>
   );

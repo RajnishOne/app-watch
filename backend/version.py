@@ -25,7 +25,7 @@ def get_version():
         return version
     
     # Fallback to default
-    fallback_version = '1.8.5'
+    fallback_version = '2.4.0'
     logger.info(f"Using default version: {fallback_version}")
     return fallback_version
 

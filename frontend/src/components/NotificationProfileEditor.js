@@ -19,7 +19,7 @@ const ProfileInput = ({ label, field, profile, index, onChange, errors, type = '
         value={profile[field] || ''}
         onChange={(event) => onChange(index, field, event.target.value)}
         placeholder={placeholder}
-        className={`form-input ${error ? 'error' : ''}`}
+        className={`form-input font-mono ${error ? 'error' : ''}`}
       />
       {error && <span className="form-error">{error}</span>}
     </div>
@@ -28,35 +28,43 @@ const ProfileInput = ({ label, field, profile, index, onChange, errors, type = '
 
 export function NotificationProfileEditor({ profile, index, onChange, onRemove, errors, globalTelegramToken, globalSmtpHost }) {
   const webhookPlaceholder = profile.type === 'discord'
-    ? 'https://discord.com/api/webhooks/...'
+    ? 'https://discord.com/api/webhooks/…'
     : profile.type === 'slack'
-      ? 'https://hooks.slack.com/services/...'
+      ? 'https://hooks.slack.com/services/…'
       : profile.type === 'teams'
-        ? 'https://outlook.office.com/webhook/...'
+        ? 'https://outlook.office.com/webhook/…'
         : 'https://example.com/webhook';
 
   return (
-    <div className="destination-card" style={{ marginBottom: '16px' }}>
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-        <div className="form-group" style={{ flex: 1 }}>
-          <label className="form-label">Profile Name <span className="required">*</span></label>
+    <div className="destination-card">
+      <div className="destination-card-header-row">
+        <div className="form-group flex-1 mb-0">
+          <label className="form-label">Profile name <span className="required">*</span></label>
           <input
             type="text"
             value={profile.name || ''}
             onChange={(event) => onChange(index, 'name', event.target.value)}
-            placeholder="e.g., Main Telegram"
+            placeholder="e.g. Production alerts"
             className={`form-input ${errors[`profile_${index}_name`] ? 'error' : ''}`}
           />
           {errors[`profile_${index}_name`] && <span className="form-error">{errors[`profile_${index}_name`]}</span>}
         </div>
-        <button type="button" className="btn btn-secondary" onClick={() => onRemove(index)} style={{ marginTop: '28px' }}>
+        <button
+          type="button"
+          className="btn btn-subtle-danger btn-sm"
+          onClick={() => onRemove(index)}
+        >
           Remove
         </button>
       </div>
 
       <div className="form-group">
-        <label className="form-label">Destination Type <span className="required">*</span></label>
-        <select value={profile.type || ''} onChange={(event) => onChange(index, 'type', event.target.value)} className="form-select">
+        <label className="form-label">Destination type <span className="required">*</span></label>
+        <select
+          value={profile.type || ''}
+          onChange={(event) => onChange(index, 'type', event.target.value)}
+          className="form-select"
+        >
           <option value="">Select destination</option>
           {NOTIFICATION_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
         </select>
@@ -64,41 +72,125 @@ export function NotificationProfileEditor({ profile, index, onChange, onRemove, 
       </div>
 
       {['discord', 'slack', 'teams', 'generic'].includes(profile.type) && (
-        <ProfileInput label="Webhook URL" field="webhook_url" profile={profile} index={index} onChange={onChange} errors={errors} type="url" placeholder={webhookPlaceholder} required />
+        <ProfileInput
+          label="Webhook URL"
+          field="webhook_url"
+          profile={profile}
+          index={index}
+          onChange={onChange}
+          errors={errors}
+          type="url"
+          placeholder={webhookPlaceholder}
+          required
+        />
       )}
 
       {profile.type === 'telegram' && (
         <>
-          <ProfileInput label="Bot Token" field="bot_token" profile={profile} index={index} onChange={onChange} errors={errors} type="password" placeholder={globalTelegramToken ? 'Uses the default token when empty' : '123456789:ABCdef...'} required={!globalTelegramToken} />
-          {globalTelegramToken && <span className="form-hint" style={{ display: 'block', marginTop: '-12px', marginBottom: '16px' }}>Leave empty to use the default Telegram bot token.</span>}
-          <ProfileInput label="Chat ID" field="chat_id" profile={profile} index={index} onChange={onChange} errors={errors} placeholder="-1001234567890_2" required />
-          <span className="form-hint" style={{ display: 'block', marginTop: '-12px', marginBottom: '16px' }}>A topic can be specified as chat_id_topic_id.</span>
+          <ProfileInput
+            label="Bot token"
+            field="bot_token"
+            profile={profile}
+            index={index}
+            onChange={onChange}
+            errors={errors}
+            type="password"
+            placeholder={globalTelegramToken ? 'Default token used when empty' : '123456789:ABCdef…'}
+            required={!globalTelegramToken}
+          />
+          {globalTelegramToken && (
+            <span className="form-hint">Leave empty to use the default Telegram bot token.</span>
+          )}
+          <ProfileInput
+            label="Chat ID"
+            field="chat_id"
+            profile={profile}
+            index={index}
+            onChange={onChange}
+            errors={errors}
+            placeholder="-1001234567890_2"
+            required
+          />
+          <span className="form-hint">Topic threads can be specified as chat_id_topic_id.</span>
         </>
       )}
 
       {profile.type === 'email' && (
         <>
-          <ProfileInput label="Recipient Email" field="email" profile={profile} index={index} onChange={onChange} errors={errors} type="email" placeholder="recipient@example.com" required />
-          <ProfileInput label="SMTP Host" field="smtp_host" profile={profile} index={index} onChange={onChange} errors={errors} placeholder={globalSmtpHost ? 'Uses the default SMTP host when empty' : 'smtp.gmail.com'} required={!globalSmtpHost} />
-          <ProfileInput label="SMTP Port" field="smtp_port" profile={profile} index={index} onChange={onChange} errors={errors} placeholder="587" />
-          <ProfileInput label="SMTP Username" field="smtp_user" profile={profile} index={index} onChange={onChange} errors={errors} placeholder="sender@example.com" />
-          <ProfileInput label="SMTP Password" field="smtp_password" profile={profile} index={index} onChange={onChange} errors={errors} type="password" />
-          <ProfileInput label="From Email" field="smtp_from" profile={profile} index={index} onChange={onChange} errors={errors} type="email" placeholder="sender@example.com" />
+          <ProfileInput
+            label="Recipient email"
+            field="email"
+            profile={profile}
+            index={index}
+            onChange={onChange}
+            errors={errors}
+            type="email"
+            placeholder="recipient@example.com"
+            required
+          />
+          <ProfileInput
+            label="SMTP host"
+            field="smtp_host"
+            profile={profile}
+            index={index}
+            onChange={onChange}
+            errors={errors}
+            placeholder={globalSmtpHost ? 'Default host used when empty' : 'smtp.gmail.com'}
+            required={!globalSmtpHost}
+          />
+          <ProfileInput
+            label="SMTP port"
+            field="smtp_port"
+            profile={profile}
+            index={index}
+            onChange={onChange}
+            errors={errors}
+            placeholder="587"
+          />
+          <ProfileInput
+            label="SMTP username"
+            field="smtp_user"
+            profile={profile}
+            index={index}
+            onChange={onChange}
+            errors={errors}
+            placeholder="sender@example.com"
+          />
+          <ProfileInput
+            label="SMTP password"
+            field="smtp_password"
+            profile={profile}
+            index={index}
+            onChange={onChange}
+            errors={errors}
+            type="password"
+          />
+          <ProfileInput
+            label="From email"
+            field="smtp_from"
+            profile={profile}
+            index={index}
+            onChange={onChange}
+            errors={errors}
+            type="email"
+            placeholder="sender@example.com"
+          />
         </>
       )}
 
       {profile.type === 'generic' && (
         <div className="form-group">
-          <label className="form-label">Payload Template (JSON, optional)</label>
+          <label className="form-label">Payload template (JSON, optional)</label>
           <textarea
             value={profile.payload_template || ''}
             onChange={(event) => onChange(index, 'payload_template', event.target.value)}
             placeholder={'{"app": "{{app_name}}", "version": "{{version}}"}'}
             rows="3"
-            className={`form-input ${errors[`profile_${index}_payload_template`] ? 'error' : ''}`}
-            style={{ fontFamily: 'monospace' }}
+            className={`form-input font-mono ${errors[`profile_${index}_payload_template`] ? 'error' : ''}`}
           />
-          {errors[`profile_${index}_payload_template`] && <span className="form-error">{errors[`profile_${index}_payload_template`]}</span>}
+          {errors[`profile_${index}_payload_template`] && (
+            <span className="form-error">{errors[`profile_${index}_payload_template`]}</span>
+          )}
         </div>
       )}
     </div>

@@ -26,6 +26,8 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
 
   useEffect(() => {
     loadWebhooks();
+    document.title = 'Broadcast - App Watch';
+    return () => { document.title = 'App Watch'; };
   }, [loadWebhooks]);
 
   const handleWebhookToggle = (webhookId) => {
@@ -49,7 +51,6 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
       return;
     }
     
-    // Add to new webhook URLs list
     if (!newWebhookUrls.includes(url)) {
       setNewWebhookUrls(prev => [...prev, url]);
       setNewWebhookUrl('');
@@ -82,13 +83,11 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
     setErrors({});
 
     try {
-      // Collect webhook URLs from selected existing webhooks
       const webhookUrls = selectedWebhooks.map(id => {
         const webhook = availableWebhooks.find(w => w.id === id);
         return webhook ? webhook.webhook_url : null;
       }).filter(url => url !== null);
 
-      // Add new webhook URLs
       webhookUrls.push(...newWebhookUrls);
 
       if (webhookUrls.length === 0) {
@@ -123,11 +122,12 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Broadcast</h1>
-          <p className="page-subtitle">Send a custom message to your webhooks</p>
+          <p className="page-subtitle">Broadcast notification messages across configured webhook channels</p>
         </div>
         <div className="page-header-right">
           <button className="btn btn-secondary" onClick={onCancel}>
-            <Icons.ArrowLeft /> Back
+            <Icons.ArrowLeft />
+            <span>Back</span>
           </button>
         </div>
       </div>
@@ -141,7 +141,7 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
               </div>
               <div className="card-body">
                 <div className="form-group">
-                  <label className="form-label">Custom Message <span className="required">*</span></label>
+                  <label className="form-label">Broadcast message <span className="required">*</span></label>
                   <textarea
                     value={customMessage}
                     onChange={(e) => {
@@ -150,12 +150,11 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
                         setErrors(prev => ({ ...prev, message: '' }));
                       }
                     }}
-                    placeholder="Enter your message here... (e.g., 'Hello' or a full paragraph)"
-                    rows="6"
-                    className={`form-input ${errors.message ? 'error' : ''}`}
+                    placeholder="Enter message text to broadcast…"
+                    rows="5"
+                    className={`form-input font-mono ${errors.message ? 'error' : ''}`}
                     style={{ resize: 'vertical' }}
                   />
-                  <span className="form-hint">Write your message here...</span>
                   {errors.message && <span className="form-error">{errors.message}</span>}
                 </div>
               </div>
@@ -163,7 +162,7 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
 
             <div className="card">
               <div className="card-header">
-                <h3 className="card-title">Select Webhooks</h3>
+                <h3 className="card-title">Target webhooks</h3>
               </div>
               <div className="card-body">
                 {errors.webhooks && <span className="form-error">{errors.webhooks}</span>}
@@ -171,38 +170,35 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
                 {loading ? (
                   <div className="loading">
                     <div className="loading-spinner"></div>
-                    <span>Loading webhooks...</span>
+                    <span>Loading webhooks…</span>
                   </div>
                 ) : (
                   <>
                     {availableWebhooks.length > 0 && (
                       <div className="form-group">
-                        <label className="form-label">Existing Webhooks</label>
-                        <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
+                        <label className="form-label">Configured destinations</label>
+                        <div className="webhook-selector-list">
                           {availableWebhooks.map(webhook => (
-                            <div key={webhook.id} style={{ marginBottom: '8px' }}>
-                              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={selectedWebhooks.includes(webhook.id)}
-                                  onChange={() => handleWebhookToggle(webhook.id)}
-                                  style={{ cursor: 'pointer' }}
-                                />
-                                <span style={{ flex: 1 }}>
-                                  <strong>{webhook.label}</strong>
-                                  <br />
-                                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{webhook.webhook_url}</span>
-                                </span>
-                              </label>
-                            </div>
+                            <label key={webhook.id} className="webhook-select-item">
+                              <input
+                                type="checkbox"
+                                checked={selectedWebhooks.includes(webhook.id)}
+                                onChange={() => handleWebhookToggle(webhook.id)}
+                                className="form-checkbox"
+                              />
+                              <div className="webhook-select-content">
+                                <span className="webhook-select-label">{webhook.label}</span>
+                                <span className="webhook-select-url font-mono">{webhook.webhook_url}</span>
+                              </div>
+                            </label>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    <div className="form-group" style={{ marginTop: '20px' }}>
-                      <label className="form-label">Add New Webhook</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className="form-group">
+                      <label className="form-label">Add custom webhook</label>
+                      <div className="input-with-button">
                         <input
                           type="url"
                           value={newWebhookUrl}
@@ -212,9 +208,8 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
                               setErrors(prev => ({ ...prev, newWebhook: '' }));
                             }
                           }}
-                          placeholder="https://discord.com/api/webhooks/... or any webhook URL"
-                          className={`form-input ${errors.newWebhook ? 'error' : ''}`}
-                          style={{ flex: 1 }}
+                          placeholder="https://…"
+                          className={`form-input font-mono ${errors.newWebhook ? 'error' : ''}`}
                         />
                         <button
                           type="button"
@@ -225,49 +220,31 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
                         </button>
                       </div>
                       {errors.newWebhook && <span className="form-error">{errors.newWebhook}</span>}
-                      <span className="form-hint">Add a new webhook URL to send the message to.</span>
                     </div>
 
                     {newWebhookUrls.length > 0 && (
                       <div className="form-group">
-                        <label className="form-label">New Webhooks Added</label>
-                        {newWebhookUrls.map((url, index) => (
-                          <div key={index} style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between',
-                            padding: '12px', 
-                            background: 'var(--bg-hover)', 
-                            borderRadius: '8px', 
-                            marginBottom: '8px',
-                            fontSize: '14px' 
-                          }}>
-                            <span style={{ flex: 1, wordBreak: 'break-all' }}>{url}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveNewWebhook(url)}
-                              style={{
-                                marginLeft: '8px',
-                                padding: '4px 8px',
-                                background: 'var(--accent-primary)',
-                                border: 'none',
-                                borderRadius: '4px',
-                                color: 'var(--bg-primary)',
-                                cursor: 'pointer',
-                                fontSize: '12px'
-                              }}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
+                        <label className="form-label">Additional recipients</label>
+                        <div className="new-webhooks-list">
+                          {newWebhookUrls.map((url, index) => (
+                            <div key={index} className="new-webhook-row">
+                              <span className="font-mono text-secondary text-truncate">{url}</span>
+                              <button
+                                type="button"
+                                className="btn btn-subtle-danger btn-sm"
+                                onClick={() => handleRemoveNewWebhook(url)}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
-                    {availableWebhooks.length === 0 && !loading && (
-                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        <p>No webhooks found in your apps.</p>
-                        <p style={{ fontSize: '14px', marginTop: '8px' }}>Add a new webhook URL above or configure webhooks in your apps.</p>
+                    {availableWebhooks.length === 0 && !loading && newWebhookUrls.length === 0 && (
+                      <div className="empty-subtext">
+                        <p>No webhooks configured yet. Add a URL above or configure notification profiles in Settings.</p>
                       </div>
                     )}
                   </>
@@ -276,19 +253,14 @@ export function SendWebhookPage({ onCancel, message, showMessage }) {
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary btn-lg" disabled={sending || !customMessage.trim() || (selectedWebhooks.length === 0 && newWebhookUrls.length === 0)}>
-                {sending ? (
-                  <>
-                    <div className="loading-spinner" style={{ width: '16px', height: '16px', marginRight: '8px' }}></div>
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Icons.Send /> Send Message
-                  </>
-                )}
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={sending || !customMessage.trim() || (selectedWebhooks.length === 0 && newWebhookUrls.length === 0)}
+              >
+                {sending ? 'Sending…' : 'Send broadcast'}
               </button>
-              <button type="button" className="btn btn-secondary btn-lg" onClick={onCancel} disabled={sending}>
+              <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={sending}>
                 Cancel
               </button>
             </div>

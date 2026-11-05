@@ -36,7 +36,7 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
     smtp_password: '',
     smtp_from: '',
     smtp_use_tls: true,
-    version: '1.8.5',
+    version: '2.4.0',
     api_key: '',
     message_format_version_header: '# v{version}',
     message_format_section_header: '## {section}',
@@ -234,12 +234,12 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
         return (
           <div className="settings-section">
             <div className="settings-section-header">
-              <h3 className="settings-section-title">General Settings</h3>
-              <p className="settings-section-description">Configure default behavior and monitoring preferences</p>
+              <h3 className="settings-section-title">General settings</h3>
+              <p className="settings-section-description">Default behavior and monitoring preferences</p>
             </div>
             <div className="settings-section-body">
                 <div className="form-group">
-                  <label className="form-label">Default Check Interval</label>
+                  <label className="form-label">Default check interval</label>
                   <input
                     type="text"
                     name="default_interval"
@@ -600,8 +600,8 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
         return (
           <div className="settings-section">
             <div className="settings-section-header">
-              <h3 className="settings-section-title">Security Settings</h3>
-              <p className="settings-section-description">Manage API access for integrations</p>
+              <h3 className="settings-section-title">Security</h3>
+              <p className="settings-section-description">Manage API access tokens for integrations</p>
             </div>
             <div className="settings-section-body">
                 <div className="form-group">
@@ -670,8 +670,8 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
               <div className="form-page">
                 <div className="settings-section">
                   <div className="settings-section-header">
-                    <h3 className="settings-section-title">Appearance Settings</h3>
-                    <p className="settings-section-description">Customize the look and feel of the application</p>
+                    <h3 className="settings-section-title">Appearance</h3>
+                    <p className="settings-section-description">Theme and accent color configuration</p>
                   </div>
                   <div className="settings-section-body">
                     <div className="form-group">
@@ -722,8 +722,9 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
                   {renderSectionContent()}
 
                   <div className="form-actions">
-                    <button type="submit" className="btn btn-primary btn-lg" disabled={saving}>
-                      <Icons.Check /> {saving ? 'Saving...' : 'Save Settings'}
+                    <button type="submit" className="btn btn-primary" disabled={saving}>
+                      <Icons.Check />
+                      <span>{saving ? 'Saving…' : 'Save settings'}</span>
                     </button>
                   </div>
                 </form>
@@ -731,7 +732,7 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
                 {section === 'general' && (
                   <div className="version-info">
                     <span className="version-label">Version</span>
-                    <span className="version-value">{settings.version || '1.8.5'}</span>
+                    <span className="version-value">{settings.version || '2.4.0'}</span>
                   </div>
                 )}
               </div>

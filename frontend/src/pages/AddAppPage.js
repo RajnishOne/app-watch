@@ -432,7 +432,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
     <>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">{editingApp ? 'Edit App' : 'Add New App'}</h1>
+          <h1 className="page-title">{editingApp ? 'Edit app' : 'Add app'}</h1>
           <p className="page-subtitle">{editingApp ? 'Update app monitoring settings' : 'Configure a new app to monitor'}</p>
         </div>
         <div className="page-header-right">
@@ -447,7 +447,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
           <form onSubmit={handleSubmit}>
             <div className="card">
               <div className="card-header">
-                <h3 className="card-title">App Details</h3>
+                <h3 className="card-title">App details</h3>
               </div>
               <div className="card-body">
                 {/* 1. App Store or Google Play URL - FIRST PLACE */}
@@ -458,7 +458,17 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                     </label>
                     {urlStatus.platform && (
                       <div className={`detected-platform-badge ${urlStatus.platform}`}>
-                        {urlStatus.platform === 'ios' ? '🍎 iOS (App Store)' : '🤖 Android (Google Play)'}
+                        {urlStatus.platform === 'ios' ? (
+                          <>
+                            <Icons.Apple />
+                            <span>iOS App Store</span>
+                          </>
+                        ) : (
+                          <>
+                            <Icons.Android />
+                            <span>Google Play</span>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -499,7 +509,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
                         />
                       ) : (
                         <div className="app-preview-icon-placeholder">
-                          {formData.platform === 'ios' ? '🍎' : '🤖'}
+                          {formData.platform === 'ios' ? <Icons.Apple /> : <Icons.Android />}
                         </div>
                       )}
                       <div className="app-preview-info">
@@ -608,7 +618,7 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
 
             <div className="card">
               <div className="card-header">
-                <h3 className="card-title">Notification Destinations</h3>
+                <h3 className="card-title">Notification destinations</h3>
               </div>
               <div className="card-body">
                 <p style={{ marginBottom: '20px', color: 'var(--text-muted)', fontSize: '14px' }}>
@@ -831,13 +841,14 @@ export function AddAppPage({ onSave, onCancel, message, showMessage, editingApp 
             <div className="form-actions">
               <button
                 type="submit"
-                className="btn btn-primary btn-lg"
+                className="btn btn-primary"
                 disabled={!isFormValid()}
                 title={!isFormValid() ? 'Please provide a valid App Store or Google Play URL, App Name, Store ID, and 2-letter Store Country.' : undefined}
               >
-                <Icons.Check /> {editingApp ? 'Update App' : 'Save App'}
+                <Icons.Check />
+                <span>{editingApp ? 'Update app' : 'Save app'}</span>
               </button>
-              <button type="button" className="btn btn-secondary btn-lg" onClick={onCancel}>
+              <button type="button" className="btn btn-secondary" onClick={onCancel}>
                 Cancel
               </button>
             </div>
