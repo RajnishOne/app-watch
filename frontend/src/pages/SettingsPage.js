@@ -36,7 +36,7 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
     smtp_password: '',
     smtp_from: '',
     smtp_use_tls: true,
-    version: '2.4.0',
+    version: '2.4.1',
     api_key: '',
     message_format_version_header: '# v{version}',
     message_format_section_header: '## {section}',
@@ -732,7 +732,7 @@ export function SettingsPage({ onCancel, message, showMessage, section = 'genera
                 {section === 'general' && (
                   <div className="version-info">
                     <span className="version-label">Version</span>
-                    <span className="version-value">{settings.version || '2.4.0'}</span>
+                    <span className="version-value">{settings.version || '2.4.1'}</span>
                   </div>
                 )}
               </div>
