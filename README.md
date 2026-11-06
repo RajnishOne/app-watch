@@ -2,6 +2,8 @@
 
 A self-hosted tool to monitor iOS App Store and Google Play Store apps for new releases and automatically notify you via multiple platforms (Discord, Slack, Telegram, Microsoft Teams, Email, or custom webhooks). Features a web interface for easy management of multiple apps.
 
+![App Watch Dashboard](assets/screenshot.png)
+
 ## Features
 
 - 🍎🤖 Monitor multiple iOS and Android apps simultaneously
